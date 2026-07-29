@@ -4,13 +4,15 @@ import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.model.PokemonType
 
 /**
- * Fixtures for the @Preview functions, and the temporary source of the screen until the ViewModel
- * lands.
+ * Temporary stand in for the API, and the fixture the previews render.
+ *
+ * One copy on purpose: if the previews kept a list of their own it would drift from what the app
+ * actually shows. The whole file goes away once the data layer is in.
  *
  * The descriptions are written here rather than copied from the real Pokedex entries: the app pulls
  * the genuine text from the API at runtime, so there is no reason to bake game text into the repo.
  */
-val samplePokemon = listOf(
+val staticPokemon = listOf(
     Pokemon(
         id = 1,
         name = "bulbasaur",
@@ -43,7 +45,7 @@ val samplePokemon = listOf(
     ),
 )
 
-val sampleDescriptions = mapOf(
+val staticDescriptions = mapOf(
     1 to "A seed sits on its back from birth, and grows larger as this Pokemon takes in sunlight.",
     405 to "Its eyes pick out shapes behind thick walls, which makes it a tireless tracker.",
     90 to "It keeps its soft body sealed inside a shell that very few attacks can even scratch.",

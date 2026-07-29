@@ -26,8 +26,8 @@ import coil3.request.crossfade
 import it.kata.pokedex.R
 import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.presentation.common.displayName
-import it.kata.pokedex.presentation.list.sampleDescriptions
-import it.kata.pokedex.presentation.list.samplePokemon
+import it.kata.pokedex.presentation.list.staticDescriptions
+import it.kata.pokedex.presentation.list.staticPokemon
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**
@@ -88,8 +88,8 @@ fun PokemonRow(
 private fun PokemonRowPreview() {
     PokedexTheme {
         PokemonRow(
-            pokemon = samplePokemon[0],
-            description = sampleDescriptions.getValue(samplePokemon[0].id),
+            pokemon = staticPokemon[0],
+            description = staticDescriptions.getValue(staticPokemon[0].id),
         )
     }
 }
@@ -99,8 +99,8 @@ private fun PokemonRowPreview() {
 private fun PokemonRowLongDescriptionPreview() {
     PokedexTheme {
         PokemonRow(
-            pokemon = samplePokemon[3],
-            description = sampleDescriptions.getValue(samplePokemon[3].id),
+            pokemon = staticPokemon[3],
+            description = staticDescriptions.getValue(staticPokemon[3].id),
         )
     }
 }

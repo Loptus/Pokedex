@@ -49,8 +49,8 @@ fun PokemonListScreen(
 private fun PokemonListScreenPreview() {
     PokedexTheme {
         PokemonListScreen(
-            pokemon = samplePokemon,
-            descriptionFor = { sampleDescriptions.getValue(it) },
+            pokemon = staticPokemon,
+            descriptionFor = { staticDescriptions.getValue(it) },
         )
     }
 }
