@@ -1,31 +1,38 @@
 package it.kata.pokedex.presentation.list
 
+import androidx.paging.testing.asSnapshot
+import it.kata.pokedex.utils.MainDispatcherRule
+import kotlinx.coroutines.test.runTest
+import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class PokemonListViewModelTest {
 
-    @Test
-    fun `exposes the list as soon as it is created`() {
-        val state = PokemonListViewModel().uiState.value
-
-        assertEquals(staticPokemon, state.pokemon)
-    }
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     /**
-     * The screen looks a description up by id, so a Pokemon without one would render an empty
-     * paragraph. Cheap invariant to check, and it is the kind of gap nobody notices by scrolling.
+     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which here would
+     * hand over all forty five entries at once and never append anything.
+     *
+     * Forty rather than twenty because Paging prefetches the following page as soon as the first
+     * one is consumed: twenty loaded, twenty prefetched. The point of the assertion is that it is
+     * well short of the whole list.
      */
     @Test
-    fun `has a description for every pokemon it shows`() {
-        val state = PokemonListViewModel().uiState.value
+    fun `loads a page at a time instead of the whole list`() = runTest {
+        val loaded = PokemonListViewModel().pokemon.asSnapshot()
 
-        state.pokemon.forEach { pokemon ->
-            assertTrue(
-                pokemon.id in state.descriptions,
-                "${pokemon.name} has no description",
-            )
+        assertEquals(40, loaded.size)
+    }
+
+    @Test
+    fun `appends the remaining pages as the list is scrolled to the end`() = runTest {
+        val loaded = PokemonListViewModel().pokemon.asSnapshot {
+            scrollTo(index = staticPokemon.lastIndex)
         }
+
+        assertEquals(staticPokemon, loaded)
     }
 }

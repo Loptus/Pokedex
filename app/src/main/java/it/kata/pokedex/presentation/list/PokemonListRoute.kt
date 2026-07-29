@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.compose.collectAsLazyPagingItems
 
 /**
  * The stateful half of the screen: it collects the state and hands plain values to the composable
@@ -16,9 +17,10 @@ fun PokemonListRoute(
     viewModel: PokemonListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pokemon = viewModel.pokemon.collectAsLazyPagingItems()
 
     PokemonListScreen(
-        pokemon = uiState.pokemon,
+        pokemon = pokemon,
         descriptionFor = { uiState.descriptions[it].orEmpty() },
         modifier = modifier,
     )
