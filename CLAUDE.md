@@ -1,267 +1,291 @@
-# CLAUDE.md: Test tecnico Soluzione 1, app Pokédex (Kotlin + Compose)
+# CLAUDE.md: Pokédex (Kotlin + Compose)
 
-> Istruzioni operative per Claude Code. Il progetto si costruisce "a quattro mani":
-> Alessio Fallone (Senior Android Engineer, 13+ anni) guida le scelte e revisiona, Claude Code
-> propone e implementa. Questo file è la fonte di verità su obiettivo, stack, architettura e
-> vincoli. Leggerlo prima di scrivere qualsiasi codice.
+Istruzioni operative per Claude Code. Questo file è la fonte di verità su obiettivo, stack,
+architettura, regole di lavoro e convenzioni. Leggerlo prima di scrivere codice.
 
-## 0. Contesto: cos'è questo lavoro
+## 1. Cos'è il progetto
 
-È il test tecnico consegnato da Soluzione 1 dopo un colloquio andato bene (recruiter Marco).
-Dopo la consegna, Alessio dovrà **discutere il codice di persona in sede**: ogni scelta va quindi
-capita e difendibile, non "presa dalla libreria a caso". Meglio poco codice pulito e motivato che
-molto codice non padroneggiato.
+App Android nativa che mostra una lista di Pokémon presi dalla PokeAPI pubblica
+(`https://pokeapi.co/docs/v2`).
 
-Traccia originale (sintesi fedele):
+Requisiti funzionali:
 
-- App mobile che mostra una **lista di Pokémon** dalla PokeAPI pubblica (`https://pokeapi.co/docs/v2`),
-  con **ricerca per nome o tipo**.
-- **Paginazione** a massimo 20 elementi per pagina, con **caricamento automatico** della pagina
-  successiva quando si arriva in fondo (infinite scroll).
-- **Asincronia fatta bene** (coroutine).
-- **Codice pulito** e **design pattern adeguati** (MVVM, Clean Architecture).
-- Extra graditi (non obbligatori): **preferiti** salvabili e visualizzabili in una **pagina dedicata**
-  dove si possono eliminare; seguire il **mockup** fornito e migliorarlo; **navigazione** con tab
-  bar / navigation drawer / FAB o simili; **icona dell'app**.
-- Consegna come **archivio ZIP**. Nome app e icona adattabili allo stile di Soluzione 1.
-- Budget dichiarato: **massimo 6 ore complessive**. Valutano qualità del codice, chiarezza,
-  performance e aderenza alle indicazioni.
+- Lista dei Pokémon con thumbnail, nome, tipi e una breve descrizione.
+- **Paginazione a 20 elementi**, con caricamento automatico della pagina successiva quando si
+  arriva in fondo (infinite scroll).
+- **Ricerca per nome** e **filtro per tipo**.
+- **Preferiti** salvabili, con una pagina dedicata da cui si possono eliminare.
+- Navigazione fra le due pagine con bottom navigation.
 
-Criteri di valutazione su cui puntare, in ordine: architettura pulita e scalabile, networking e
+Qualità su cui il progetto viene misurato, in ordine: architettura pulita e scalabile, networking e
 parsing corretti, UI funzionale e gradevole, best practice di piattaforma.
 
-## 1. Come lavoriamo insieme (protocollo a quattro mani)
+## 2. Come si lavora
 
-1. **Mostra il piano prima di agire** sui pezzi non banali (scelta libreria, struttura moduli,
-   strategia ricerca/paginazione) e aspetta l'ok di Alessio.
-2. **Commit piccoli e atomici**, un messaggio chiaro per ciascuno. La storia git deve raccontare
-   il ragionamento: sarà utile in sede.
-3. **Spiega le scelte mentre le fai**, in breve, così Alessio le può difendere. Segnala i
-   trade-off ("uso X invece di Y perché..., il costo è...").
-4. **Non over-ingegnerizzare per il budget di 6 ore.** Prima il must-have solido, poi gli extra.
-   Se una cosa è bella ma costosa, proponila come stretch e lasciala decidere ad Alessio.
-5. Quando un requisito è ambiguo, **chiedi**, non indovinare.
+Queste regole valgono sempre e hanno la precedenza sulla voglia di andare veloce.
 
-## 2. Stack tecnico (deciso)
+1. **Uno step alla volta.** Si esegue solo lo step corrente, si ferma, si rivede insieme prima di
+   passare al successivo.
+2. **Niente che non serva allo step corrente.** Nessun parametro, nessuna firma, nessun file, nessuna
+   stringa e nessuna icona messi lì per uno step futuro, nemmeno sapendo già che quel file andrà
+   riaperto. Riaprirlo è il costo giusto da pagare. In particolare: **mai UI per funzionalità non
+   ancora implementate**, perché il finale peggiore possibile è un progetto pieno di riferimenti a
+   una feature che non è mai arrivata.
+3. **Ogni step chiude qualcosa di intero**, in verticale, invece di lasciare impalcature a metà.
+4. **Approccio top-down.** Si parte dalla UI e si scende verso i dati: il mockup dice quali campi
+   esistono davvero, quindi partendo dalla schermata il modello nasce minimo e non si costruisce
+   data layer che nessuno usa. Unica eccezione: il **modello di dominio viene prima della UI**,
+   perché è il contratto fra i layer.
+5. **Mostra il piano prima di agire** sulle scelte non banali (libreria, struttura, strategia di
+   ricerca o di paginazione) e aspetta l'ok.
+6. **Spiega le scelte mentre le fai**, in breve, con il trade-off esplicito ("uso X invece di Y
+   perché..., il costo è...").
+7. **Quando un requisito è ambiguo, chiedi**, non indovinare.
+8. **Non over-ingegnerizzare.** Prima il must-have solido, poi gli extra. Se una cosa è bella ma
+   costosa, proponila e lascia decidere.
+9. **Riporta gli esiti fedelmente.** Se un test è rosso si dice, con l'output. Se un passaggio è
+   stato saltato si dice. Mai dichiarare verificato ciò che non è stato eseguito.
 
-- **Linguaggio:** Kotlin (ultima stabile), JDK 17.
+### Git
+
+- **Si lavora solo su `main`**, niente branch per feature: nessuna review, nessuna CI, nessun lavoro
+  in parallelo da isolare, e la storia deve farsi leggere in ordine.
+- **Nessun commit di iniziativa.** I commit si fanno solo quando vengono richiesti.
+- **Messaggi di commit brevi e in inglese**, all'imperativo (`Add Pokemon list screen`), senza firme
+  né co-autori generati.
+- Commit piccoli e atomici: la storia git deve raccontare il ragionamento.
+
+## 3. Stack tecnico
+
+- **Kotlin** (ultima stabile), JDK 17 come target, toolchain 21.
 - **UI:** Jetpack Compose + **Material 3**. Single Activity, niente Fragment.
-- **Async:** Coroutine + **Flow**. `viewModelScope`, `StateFlow` per lo stato UI.
-- **DI:** **Hilt**.
-- **Networking:** **Retrofit** + **OkHttp** (logging interceptor + cache HTTP). Serializzazione con
-  **kotlinx.serialization** (converter `retrofit2-kotlinx-serialization-converter`).
-- **Paginazione:** **Paging 3** (`androidx.paging:paging-compose`).
+- **Async:** Coroutine + Flow. `viewModelScope`, `StateFlow` per lo stato UI.
+- **DI:** **Hilt** con KSP.
+- **Networking:** **Retrofit** + **OkHttp** (logging interceptor in debug, cache HTTP su disco).
+- **Serializzazione:** **Gson** con `converter-gson`. Conseguenza importante: Gson non garantisce la
+  non-nullità a runtime, quindi i DTO vogliono **default espliciti su ogni campo** e i test dei
+  mapper fanno da rete di sicurezza al posto del controllo del compilatore.
+- **Paginazione:** **Paging 3** (`paging-runtime`, `paging-compose`, `paging-testing`).
 - **Persistenza preferiti:** **Room** (+ Flow reattivo).
-- **Immagini:** **Coil** (`coil-compose`), con crossfade e placeholder.
-- **Navigazione:** **Navigation Compose** con **bottom navigation** a due tab.
-- **Test:** JUnit4, **MockK**, **Turbine** (per i Flow), `kotlinx-coroutines-test`.
-- **Build:** Gradle **Kotlin DSL** (`build.gradle.kts`) + **version catalog** (`libs.versions.toml`).
+- **Immagini:** **Coil 3** (`coil-compose` + `coil-network-okhttp`, così condivide client e cache
+  HTTP con le chiamate API).
+- **Navigazione:** Navigation Compose con bottom navigation a due tab.
+- **Test:** JUnit4, MockK, Turbine, `kotlinx-coroutines-test`, MockWebServer, Robolectric,
+  `paging-testing`.
+- **Build:** Gradle Kotlin DSL + version catalog (`gradle/libs.versions.toml`).
 
-Regola generale: scegli sempre la soluzione idiomatica e recente ma **stabile**, niente alpha se
-esiste una beta/stable equivalente. Se una versione dà problemi di compatibilità, segnalalo e
-proponi il fallback invece di forzare.
+Regole sulle dipendenze:
 
-## 3. Architettura
+- Sempre la soluzione idiomatica e recente ma **stabile**: niente alpha se esiste una beta o una
+  stable equivalente. Le versioni si verificano sui repository, non si scrivono a memoria.
+- **Non introdurre version ref duplicati**: se una libreria appartiene a una famiglia già presente
+  (OkHttp, Lifecycle), usa il ref esistente, così gli aggiornamenti non lasciano indietro un pezzo.
+- Evitare artefatti deprecati o congelati. Per esempio `material-icons-core` è fermo a una versione
+  vecchia di Compose: le poche icone necessarie si mettono come vector in `res/drawable`.
+- Il linting automatico (ktlint, detekt) al momento **non** è attivo: la coerenza di stile si tiene a
+  mano seguendo la sezione 8.
 
-Clean Architecture a tre layer, MVVM nel presentation, **Unidirectional Data Flow**.
+## 4. Architettura
+
+Clean Architecture a tre layer, MVVM nel presentation, Unidirectional Data Flow.
 
 ```
-:app
- └─ com.soluzione1.pokedex
-     ├─ di/                      # moduli Hilt
-     ├─ core/                    # util, Result wrapper, dispatchers, network base
-     ├─ data/
-     │   ├─ remote/              # PokeApi (Retrofit), DTO, mapper DTO->domain
-     │   ├─ local/               # Room: entity, DAO, database
-     │   └─ repository/          # implementazioni dei repository
-     ├─ domain/
-     │   ├─ model/               # Pokemon, PokemonType, ... (modelli puliti, no annotazioni framework)
-     │   ├─ repository/          # interfacce dei repository
-     │   └─ usecase/             # use case (uno per azione: GetPokemonPagingUseCase, ToggleFavoriteUseCase, ...)
-     └─ presentation/
-         ├─ list/                # schermata lista + ricerca (ViewModel, UiState, screen, composables)
-         ├─ favorites/           # schermata preferiti
-         ├─ detail/              # (opzionale) dettaglio pokemon
-         ├─ navigation/          # NavHost, rotte, bottom bar
-         └─ theme/               # Material3 theme, colori, tipografia
+it.kata.pokedex
+├─ di/            moduli Hilt (dispatcher qualificati, network, database, repository)
+├─ core/          util, wrapper di esito, base comune
+├─ data/
+│  ├─ remote/     PokeApi (Retrofit), DTO, mapper DTO -> dominio
+│  ├─ local/      Room: entity, DAO, database
+│  └─ repository/ implementazioni dei repository
+├─ domain/
+│  ├─ model/      modelli puliti, nessuna annotazione di framework
+│  ├─ repository/ interfacce dei repository
+│  └─ usecase/    uno per azione
+└─ presentation/  list/, favourites/, navigation/, theme/, common/
 ```
 
 Principi:
 
-- **Dipendenze verso l'interno:** presentation dipende da domain, data dipende da domain, domain
-  non dipende da nessuno. I DTO e le entity Room **non escono mai** dal layer data: si mappano in
-  modelli di dominio.
-- **UiState immutabile:** ogni schermata ha una `data class ...UiState` (loading, dati, errore,
-  query, ecc.) esposta come `StateFlow`. Gli eventi utente entrano come funzioni/`onEvent` nel
-  ViewModel. Niente logica nei composable oltre al render.
-- **Gestione esiti:** wrapper `Result`/`sealed` per successo/errore, mai eccezioni nude che
-  arrivano alla UI. Stati **loading / content / empty / error** gestiti esplicitamente in ogni
-  schermata.
-- **Dispatcher iniettati** (non `Dispatchers.IO` hardcoded) per testabilità.
+- **Dipendenze verso l'interno:** presentation dipende da domain, data dipende da domain, domain non
+  dipende da nessuno. DTO ed entity Room **non escono mai** dal layer data.
+- **Il dominio resta puro:** niente colori, niente etichette, niente `Context`. La capitalizzazione
+  di un nome e il colore di un tipo sono presentation.
+- **UiState immutabile:** ogni schermata ha una `data class ...UiState` esposta come `StateFlow`.
+  Gli eventi utente entrano come funzioni nel ViewModel. **Niente logica nei composable** oltre al
+  render, e niente costruzione di sorgenti dati dentro un `remember`.
+- **Route stateful, Screen stateless:** `XxxRoute` prende il ViewModel, raccoglie lo stato e passa
+  valori semplici a `XxxScreen`, che resta previewabile e testabile da sola.
+- **Gestione esiti:** wrapper sealed per successo ed errore, mai eccezioni nude fino alla UI. Stati
+  loading / content / empty / error espliciti in ogni schermata, ma **introdotti nel momento in cui
+  qualcosa può davvero caricare o fallire**, non prima.
+- **Dispatcher iniettati** (`@IoDispatcher` e compagni), mai `Dispatchers.IO` scritto a mano.
 
 ### Use case: sempre, senza eccezioni
 
-Regola ferma (decisa da Alessio): **ogni accesso ai dati passa da uno use case**, anche quando
-sembra una read banale. La UI e i ViewModel **non chiamano mai un repository direttamente**, il
-repository è raggiunto solo attraverso uno use case. Questo tiene la logica in un posto solo e
-rende ogni operazione testabile in isolamento.
+**Ogni accesso ai dati passa da uno use case**, anche quando sembra una lettura banale. UI e
+ViewModel **non chiamano mai un repository direttamente**.
 
-Convenzioni sugli use case:
-
-- **Niente interfacce** per gli use case: sono classi concrete iniettate da Hilt. (Le interfacce
-  restano solo sui repository, per poterli sostituire con fake nei test.)
-- **Pattern `invoke`:** ogni use case espone `operator fun invoke(...)` (o `suspend operator fun`),
-  così si chiama come una funzione: `getPokemonPaging()`, `toggleFavorite(pokemon)`.
+- **Niente interfacce** per gli use case: classi concrete iniettate da Hilt. Le interfacce restano
+  sui repository, per poterli sostituire con dei fake nei test.
+- **Pattern `invoke`:** `operator fun invoke(...)` o `suspend operator fun`, così si chiamano come
+  funzioni.
 - Un use case per azione, nome parlante con suffisso `UseCase`, un solo motivo per cambiare.
-- I dispatcher, se servono, sono iniettati nello use case, non nel ViewModel.
+- I dispatcher, se servono, si iniettano nello use case, non nel ViewModel.
 
-## 4. PokeAPI: come funziona davvero (leggere, qui stanno le insidie)
+### Organizzazione dei file
 
-La PokeAPI è REST e senza auth, ma **la lista non basta a disegnare la riga del mockup**. Punti chiave
-verificati:
+- **Package per feature, non per tipo tecnico.** `presentation/list/` contiene schermata, route,
+  ViewModel e UiState di quella feature. Un package `uistate/` o `viewmodels/` a livello di progetto
+  spezzerebbe in due la lettura di una schermata: quello che cambia insieme sta insieme.
+- **Una dichiarazione principale per file**, con il nome del file uguale a quello della classe.
+  `PokemonListUiState` sta in `PokemonListUiState.kt`, non in fondo al file del ViewModel.
+- Se una cartella di feature cresce, si divide per ruolo al suo interno (`list/components/`), non per
+  tipo tecnico a livello di progetto.
+
+## 5. PokeAPI: come funziona davvero
+
+La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Punti verificati:
 
 1. **Lista paginata:** `GET /api/v2/pokemon?limit=20&offset=0` restituisce
    `{ count, next, previous, results: [{ name, url }] }`. **Solo nome e url**, niente sprite, tipi o
-   descrizione. `next`/`previous` danno la paginazione; `count` era 1351 al momento del check.
-2. **Dettaglio pokemon:** `GET /api/v2/pokemon/{id|name}` per **sprite** (`sprites.front_default`
-   e, meglio, `sprites.other."official-artwork".front_default`) e **tipi** (`types[].type.name`).
-   Payload grande: deserializzare **solo i campi che servono** (con kotlinx.serialization
-   `ignoreUnknownKeys = true`).
+   descrizione.
+2. **Dettaglio:** `GET /api/v2/pokemon/{id|name}` per lo sprite
+   (`sprites.other."official-artwork".front_default`, con fallback su `sprites.front_default`) e per
+   i tipi (`types[].type.name`). Payload grande: deserializzare **solo i campi che servono**.
 3. **Descrizione (flavor text):** sta in `GET /api/v2/pokemon-species/{id}`, campo
-   `flavor_text_entries[]`: filtrare `language.name == "en"`, prendere la prima, **ripulire** i
-   caratteri di controllo `\n`, `\f` e doppi spazi (l'API li contiene letteralmente).
-4. **Ricerca per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`. I
-   18 tipi sono un set noto e finito (normal, fire, water, grass, electric, ice, fighting, poison,
-   ground, flying, psychic, bug, rock, ghost, dragon, dark, steel, fairy).
-5. **Ricerca per nome:** la PokeAPI **non ha endpoint di ricerca fuzzy**. `GET /pokemon/{name}` fa
-   solo match esatto. Strategia: al primo avvio scaricare **una volta** l'indice leggero completo
-   (`GET /pokemon?limit=100000&offset=0`, solo name+url, poche decine di KB), tenerlo in memoria (o
-   in Room), e filtrare i nomi **in locale** per substring; poi caricare i dettagli solo per i
-   risultati (paginati).
+   `flavor_text_entries[]`. Filtrare `language.name == "en"`, prendere la prima e **ripulirla** dai
+   caratteri di controllo `\n`, `\f` e dai doppi spazi, che l'API contiene letteralmente.
+4. **Ricerca per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`.
+5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto.
+   Strategia: scaricare **una volta** l'indice leggero completo (`?limit=100000`, solo nome e url,
+   poche decine di KB), tenerlo in memoria e filtrare in locale per substring.
 
-### Conseguenza architetturale: N+1 e come domarlo
+### Il problema N+1 e come domarlo
 
-Ogni pagina di 20 pokémon richiede 1 chiamata lista + fino a 40 chiamate dettaglio/species. Da
-gestire così:
+Una pagina da 20 costa 1 chiamata di lista più fino a 40 chiamate di dettaglio e species. Va gestito:
 
-- Caricare i dettagli della pagina **in parallelo controllato** con coroutine (`coroutineScope` +
-  `async`/`awaitAll`, oppure `.asFlow().flatMapMerge(concurrency = N)`), non in sequenza.
-- Abilitare la **cache HTTP di OkHttp** (la PokeAPI manda header cache-friendly): riduce di molto le
-  chiamate ripetute e migliora la performance percepita, che loro valutano.
-- La **descrizione (species)** non serve per far scorrere la lista: si può caricare **lazy** solo
-  per gli item visibili, oppure spostarla nella schermata di dettaglio per alleggerire la lista.
-  Decidere con Alessio: il mockup la mostra in lista, quindi va gestita, ma con criterio.
+- Dettagli della pagina caricati **in parallelo controllato** (`coroutineScope` + `async`/`awaitAll`
+  su dispatcher iniettato), mai in sequenza.
+- **Cache HTTP di OkHttp** attiva: la API manda header cache-friendly e questo abbatte le chiamate
+  ripetute.
+- La **descrizione** non serve per far scorrere la lista: si carica **pigramente, solo per le righe
+  effettivamente visibili**, e il risultato si tiene in cache in memoria così sopravvive
+  all'invalidazione del Paging.
 
-## 5. Feature e priorità (con budget indicativo sulle 6 ore)
+### Paginazione
 
-> **I test non sono un extra, sono la base.** Sono ciò che certifica un livello Senior. Ogni pezzo
-> che scriviamo, use case, mapper, ViewModel, repository, va corredato dal suo test nello stesso
-> passo (approccio TDD dove ha senso). Una feature non è "fatta" finché non ha i suoi test verdi.
-> Questo vale trasversalmente su tutti i punti qui sotto, non è una voce separata da spuntare alla
-> fine. Se il budget stringe, si taglia una feature intera (con i suoi test), non i test di ciò che
-> resta.
+- `PagingConfig` con `pageSize = 20` **e `initialLoadSize = 20` esplicito**: il default di Paging è
+  tre volte la pagina, che caricherebbe 60 elementi al primo colpo e violerebbe il requisito.
+- `cachedIn(viewModelScope)` sul flusso, così una rotazione dello schermo non ricarica la lista.
+- La chiave di pagina è l'**offset**, la stessa forma che usa la API.
 
-**Must-have (prima di tutto):**
+## 6. UI
 
-1. Setup progetto, Gradle version catalog, Hilt, tema Material 3 (~30m).
-2. Layer data: `PokeApi` Retrofit, DTO, mapper, repository lista+dettaglio (~60m).
-3. Paginazione con Paging 3 (`PagingSource` offset/limit 20) + infinite scroll in Compose
-   (`collectAsLazyPagingItems`, append automatico) con stati loading/error/retry (~60m).
-4. Lista in Compose fedele al mockup (~40m).
-5. Ricerca per nome e per tipo, con **debounce** sulla query nel ViewModel (~40m).
+Il mockup di riferimento è pulito e iOS-like. Da replicare nello spirito e migliorare dove serve.
 
-**Extra graditi (se resta tempo, in quest'ordine):**
+- **Header:** titolo con due pesi di font ("Poké" regular + "dex" bold).
+- **Barra di ricerca:** campo con icona lente, sotto l'header, sempre visibile.
+- **Filtro per tipo:** riga di chip a selezione multipla. È uno **scostamento voluto** dal mockup,
+  che ha un campo unico per nome e tipo: chip separati mostrano quali tipi esistono invece di farli
+  indovinare, permettono di combinare i filtri e tengono la query non ambigua per i layer sotto.
+- **Riga della lista:** thumbnail a sinistra; a destra nome in grassetto, chip dei tipi colorati,
+  descrizione su 2 righe con ellissi. Divider sottile fra le righe.
+- **Stati:** skeleton durante il caricamento, empty state per la ricerca senza risultati, error state
+  con "Riprova" (a schermo intero se fallisce la prima pagina, in coda alla lista se fallisce una
+  successiva).
+- **Tema:** Material 3, **dynamic color disattivato**: l'app ha una sua identità, i colori dei tipi
+  sono già tutto il colore che lo schermo regge, e il dynamic color renderebbe incoerente ogni
+  screenshot.
+- **Colore dei chip:** sfondo del colore del tipo, testo bianco o nero scelto dalla luminanza dello
+  sfondo. La soglia corretta è **0.179**, non 0.5: viene dalla formula di contrasto WCAG, dove nero e
+  bianco pareggiano a `(L + 0.05) / 0.05 = 1.05 / (L + 0.05)`. Con quel pivot ogni colore è garantito
+  sopra 4.5:1.
+- **Accessibilità:** `contentDescription` sulle immagini e sui pulsanti icona, target touch adeguati,
+  testo scalabile.
 
-6. Preferiti con Room: toggle dalla lista, schermata dedicata, eliminazione (swipe-to-dismiss o
-   pulsante), osservati via Flow.
-7. Bottom navigation a due tab: "Pokédex" e "Preferiti".
-8. Schermata di dettaglio al tap (artwork grande, tipi, descrizione, stats base, toggle preferito).
-9. Icona app adattiva in stile Soluzione 1 e nome app.
+### Stringhe e lingue
 
-Ogni voce, must-have o extra, include i propri test (vedi riquadro sopra e sezione 7). Se il tempo
-stringe, **tagliare gli extra dal fondo con tutto il loro codice**, non alleggerire i test di ciò
-che resta.
+- **Nessuna stringa hardcoded** nella UI.
+- `values/strings.xml` in **inglese** come default, `values-it/strings.xml` in **italiano**. Accenti
+  italiani sempre corretti.
+- **I valori che arrivano dalla API non si traducono** (i nomi dei tipi, per esempio): sono dati, non
+  testo di interfaccia. Tradurli vorrebbe dire mantenere a mano una tabella per lingua e
+  disallinearsi dal vocabolario che la API usa anche per la ricerca. Si mostrano capitalizzando.
 
-## 6. Specifica UI (dal mockup + margine di miglioramento)
+## 7. Test
 
-Il mockup fornito ("PokemonBox") è lo stile di riferimento: pulito, chiaro, iOS-like. Da replicare
-nello spirito, poi migliorare e ribrandizzare Soluzione 1.
+I test non sono un contorno: sono ciò che rende difendibile il codice. Si scrivono **insieme** al
+codice, non dopo.
 
-- **Header:** titolo con due pesi di font (es. "Pokémon" regular + "Box"/"S1" bold).
-- **Barra di ricerca:** campo con icona lente e placeholder "Cerca per nome o tipo", sotto l'header,
-  sempre visibile.
-- **Riga lista:** thumbnail sprite a sinistra; a destra nome in grassetto, **chip dei tipi**
-  (pill arrotondate, un colore per tipo è un plus gradevole), e testo descrizione su 1-2 righe con
-  ellissi. Divider sottile tra le righe.
-- **Stati:** skeleton/placeholder durante il load, empty state per ricerca senza risultati, error
-  state con pulsante "Riprova".
-- **Preferiti:** icona cuore/stella sulla riga o nel dettaglio; nella schermata preferiti,
-  eliminazione con conferma leggera.
-- **Naming/branding:** adattare nome app e colore primario allo stile di Soluzione 1 (accent color
-  coerente). Va bene un nome tipo "S1 Pokédex". Confermare con Alessio.
-- **Accessibilità di base:** `contentDescription` sulle immagini, target touch adeguati, testo
-  scalabile.
+Cosa coprire:
 
-## 7. Testing (la base che certifica il livello Senior)
+- **Use case:** tutti, con repository fake e `kotlinx-coroutines-test`. Successo, errore e casi
+  limite (lista vuota, query che non matcha, intersezione vuota).
+- **Mapper DTO -> dominio:** pulizia del flavor text, scelta dello sprite con i fallback, parsing dei
+  tipi, campi mancanti o null.
+- **Networking e parsing:** un paio di test con MockWebServer su fixture JSON reali accorciate.
+- **PagingSource:** prima pagina, chiave offset, ultima pagina corta, sorgente vuota, errore.
+- **Flusso paginato:** con `paging-testing` (`asSnapshot`, `scrollTo`) per verificare che si carichi
+  una pagina alla volta e che l'append si fermi a fine lista.
+- **ViewModel:** debounce della ricerca, cambio dei filtri, transizioni di `UiState` con Turbine.
+- **Repository dei preferiti:** Room in-memory, toggle add e remove, osservazione via Flow.
 
-I test non sono un contorno: sono il segnale di serietà su cui Alessio vuole essere valutato. **Tutto
-ciò che scriviamo va corredato da test**, scritti insieme al codice, non dopo. Una PR/commit senza
-i test della logica che introduce è incompleto.
+Regole:
 
-Cosa coprire, layer per layer:
+- **Non scrivere test tautologici.** Una data class senza comportamento non ha bisogno di un test:
+  verificherebbe il compilatore, non il codice. Se un pezzo non ha comportamento degno di test, va
+  detto invece di riempire il progetto di test finti.
+- **Preferire invarianti che si rompono in silenzio.** Un test che verifica il contrasto su tutti e
+  18 i tipi, o che ogni elemento mostrato abbia la sua descrizione, vale più di dieci assert ovvi.
+- Test **veloci e deterministici**: niente rete reale, si usano fake e MockWebServer.
+- Non serve inseguire una percentuale di coverage, serve che ogni comportamento significativo abbia
+  il suo test.
 
-- **Use case (tutti):** sono la logica dell'app, quindi vanno testati tutti, con repository fake e
-  `kotlinx-coroutines-test`. Casi di successo, errore ed edge (lista vuota, query che non matcha).
-- **ViewModel:** logica di ricerca (debounce, switch nome vs tipo, empty), transizioni di
-  `UiState` verificate con Turbine sugli StateFlow.
-- **Mapper DTO -> domain:** pulizia flavor text (rimozione `\n`/`\f`), estrazione tipi, scelta
-  sprite, gestione campi mancanti.
-- **Repository:** comportamento con sorgente remota fake e, per i preferiti, Room in-memory
-  (`Room.inMemoryDatabaseBuilder`), toggle add/remove e osservazione via Flow.
-- **PagingSource:** caricamento pagina, chiave offset, fine lista.
+## 8. Convenzioni di codice
 
-Strumenti: JUnit4, MockK, Turbine, `kotlinx-coroutines-test`, Room in-memory per il DAO. Puntare a
-test **veloci e deterministici** (niente rete reale: usare fake/mock). Non serve inseguire una
-percentuale di coverage, serve che **ogni comportamento significativo abbia il suo test**.
-
-## 8. Consegna e vincoli
-
-- **Repository git** con storia pulita e leggibile (i commit raccontano il percorso).
-- **README.md** in italiano con: come buildare/eseguire, panoramica architettura (diagramma a
-  parole o ASCII), scelte tecniche e trade-off, cosa è stato tagliato per il budget e **"cosa farei
-  con più tempo"** (RemoteMediator + cache offline completa, più test, dettaglio ricco, ecc.).
-- **`.gitignore`** Android standard: escludere `build/`, `.gradle/`, `.idea/`, `local.properties`,
-  `*.iml`.
-- **Archivio ZIP** finale che **non** includa `build/`, `.gradle/`, `.idea/` (peso e pulizia).
-  Includere il wrapper Gradle (`gradlew`, `gradle/wrapper/`) così builda ovunque.
-- **Nessun segreto** nel repo (la PokeAPI non richiede chiavi, ma non committare `local.properties`).
-
-## 9. Convenzioni di codice
-
-- **Identificatori e commenti in inglese**, coerenti con lo standard.
-- Kotlin official code style. Considerare ktlint/detekt se non costa tempo, altrimenti coerenza
-  manuale.
-- **Niente stringhe hardcoded** nella UI: tutto in `strings.xml` (occhio agli accenti italiani
-  corretti: è, à, ì, ò, ù, é).
-- **Niente `!!`**, gestione esplicita dei nullable. Niente logica di business nei composable.
-- Funzioni piccole e nominate con chiarezza, un motivo per cambiare ciascuna.
+- **Identificatori e commenti in inglese.** Kotlin official code style.
+- **Trailing comma sempre**, su dichiarazioni e chiamate multi-riga: è raccomandata dalle convenzioni
+  ufficiali Kotlin e fa sì che aggiungere un parametro tocchi una riga sola nel diff. Applicata al
+  95% è peggio che non applicata, perché sembra distrazione invece che scelta.
+- **Niente `!!`**, gestione esplicita dei nullable.
+- **Niente logica di business nei composable.**
+- Funzioni piccole, nominate con chiarezza, un motivo per cambiare ciascuna.
 - Dependency injection ovunque, niente singleton manuali o `object` con stato.
+- I commenti spiegano **perché**, non cosa: le decisioni non ovvie (una soglia, un default
+  sovrascritto, un fallback) vanno annotate sul posto.
 
-## 10. Nota di stile per la documentazione (README, commit, commenti in italiano)
+## 9. Build e verifica
 
-Questi valgono per i testi che finiscono sotto gli occhi del recruiter:
+Non esiste un JDK sul PATH: Gradle si lancia con la JBR di Android Studio.
 
-- **Mai em dash** ("—"): Alessio lo considera un segnale di scrittura AI. Usare virgole, due punti,
-  parentesi o spezzare la frase. (Gli en dash negli intervalli di date, "2008–2012", sono ok.)
-- **Accenti italiani sempre corretti.**
-- Tono: conciso, concreto, professionale. Niente enfasi gonfiata.
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+./gradlew assembleDebug testDebugUnitTest
+```
 
----
+- Dopo ogni step: build e test verdi prima di dichiarare finito.
+- I warning del compilatore si trattano come errori da sistemare, non da ignorare (per esempio una
+  API deprecata che ha cambiato package).
+- **Limite noto:** le `@Preview` di Compose **non si renderizzano da riga di comando**, servono l'IDE
+  o una libreria di screenshot test. Il controllo visivo e la fedeltà al mockup vanno verificati a
+  mano in Android Studio: non dichiararli verificati.
 
-### Checklist di partenza per Claude Code
+## 10. Consegna
 
-1. Leggi questo file per intero e il mockup fornito.
-2. Proponi ad Alessio la struttura moduli e il version catalog, aspetta l'ok.
-3. Parti dai must-have nell'ordine della sezione 5, con commit piccoli, ogni pezzo con i suoi test.
-4. A ogni scelta non banale, una riga di spiegazione del perché.
-5. Chiudi con README, `.gitignore` e istruzioni per generare lo ZIP pulito.
+- **README.md** in italiano con: come buildare ed eseguire, panoramica dell'architettura, scelte
+  tecniche e trade-off, cosa è stato tagliato e cosa si farebbe con più tempo.
+- **`.gitignore`** Android standard: `build/`, `.gradle/`, `.idea/`, `local.properties`, `*.iml`,
+  `.DS_Store`.
+- **Nessun segreto nel repo.** La PokeAPI non richiede chiavi, ma `local.properties` non si committa.
+- Niente testo protetto da copyright nel repo: i dati di esempio si scrivono, non si copiano dalle
+  fonti originali. I contenuti veri arrivano dalla API a runtime.
+- A fine progetto: **rimuovere dal version catalog le dipendenze non utilizzate**.
+
+## 11. Stile della documentazione in italiano
+
+Vale per README, commit e commenti in italiano:
+
+- **Mai em dash** ("—"). Usare virgole, due punti, parentesi, o spezzare la frase. Gli en dash negli
+  intervalli di date ("2008–2012") vanno bene.
+- **Accenti italiani sempre corretti** (è, à, ì, ò, ù, é).
+- Tono conciso, concreto, professionale. Niente enfasi gonfiata.
