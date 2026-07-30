@@ -25,8 +25,6 @@ private val TypeColors = mapOf(
     PokemonType.FAIRY to Color(0xFFD685AD),
 )
 
-val PokemonType.color: Color get() = TypeColors.getValue(this)
-
 /**
  * Luminance above which black text beats white text on the same background.
  *
@@ -36,6 +34,8 @@ val PokemonType.color: Color get() = TypeColors.getValue(this)
  * readable without hand tuning eighteen pairs.
  */
 private const val CONTRAST_PIVOT = 0.179f
+
+val PokemonType.color: Color get() = TypeColors.getValue(this)
 
 fun contentColorOn(background: Color): Color =
     if (background.luminance() > CONTRAST_PIVOT) Color.Black else Color.White

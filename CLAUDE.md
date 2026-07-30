@@ -247,6 +247,10 @@ Regole:
 - **Trailing comma sempre**, su dichiarazioni e chiamate multi-riga: è raccomandata dalle convenzioni
   ufficiali Kotlin e fa sì che aggiungere un parametro tocchi una riga sola nel diff. Applicata al
   95% è peggio che non applicata, perché sembra distrazione invece che scelta.
+- **Prima il pubblico, poi il privato.** In un file si leggono per prime le dichiarazioni pubbliche,
+  cioè quello che interessa a chi le usa, e sotto i dettagli di implementazione. Un helper privato
+  infilato in mezzo a due funzioni pubbliche costringe a saltarlo per capire l'API. Unica eccezione:
+  le costanti private di file stanno in cima, insieme, perché servono da premessa e non da dettaglio.
 - **Niente `!!`**, gestione esplicita dei nullable.
 - **Niente logica di business nei composable.**
 - Funzioni piccole, nominate con chiarezza, un motivo per cambiare ciascuna.

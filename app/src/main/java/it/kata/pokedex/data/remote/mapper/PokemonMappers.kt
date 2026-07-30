@@ -32,14 +32,6 @@ fun PokemonDetailDto.toDomain(description: String): Pokemon? {
 }
 
 /**
- * Official artwork first because it is the large, clean image; the small sprite is the fallback.
- * Both can be missing, and the model allows that.
- */
-private fun PokemonDetailDto.artworkUrl(): String? =
-    sprites?.other?.officialArtwork?.frontDefault?.takeIf { it.isNotBlank() }
-        ?: sprites?.frontDefault?.takeIf { it.isNotBlank() }
-
-/**
  * Picks the first English entry and cleans it up.
  *
  * The API stores the text as it appeared in the games, wrapped for their text boxes, so it arrives
@@ -53,3 +45,11 @@ fun PokemonSpeciesDto.toDescription(): String =
         ?.replace(WHITESPACE, " ")
         ?.trim()
         .orEmpty()
+
+/**
+ * Official artwork first because it is the large, clean image; the small sprite is the fallback.
+ * Both can be missing, and the model allows that.
+ */
+private fun PokemonDetailDto.artworkUrl(): String? =
+    sprites?.other?.officialArtwork?.frontDefault?.takeIf { it.isNotBlank() }
+        ?: sprites?.frontDefault?.takeIf { it.isNotBlank() }

@@ -26,30 +26,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/** One grey bar of the skeleton. The alpha pulses so the wait reads as loading, not as a broken layout. */
-@Composable
-private fun PlaceholderBar(
-    widthFraction: Float,
-    modifier: Modifier = Modifier,
-    height: Int = 12,
-) {
-    val transition = rememberInfiniteTransition(label = "placeholder")
-    val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-        label = "placeholderAlpha",
-    )
-    Box(
-        modifier = modifier
-            .fillMaxWidth(widthFraction)
-            .height(height.dp)
-            .alpha(alpha)
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    )
-}
-
 /**
  * Stands in for a row while the first page is loading.
  *
@@ -81,6 +57,30 @@ fun PokemonRowPlaceholder(modifier: Modifier = Modifier) {
             PlaceholderBar(widthFraction = 0.6f)
         }
     }
+}
+
+/** One grey bar of the skeleton. The alpha pulses so the wait reads as loading, not as a broken layout. */
+@Composable
+private fun PlaceholderBar(
+    widthFraction: Float,
+    modifier: Modifier = Modifier,
+    height: Int = 12,
+) {
+    val transition = rememberInfiniteTransition(label = "placeholder")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "placeholderAlpha",
+    )
+    Box(
+        modifier = modifier
+            .fillMaxWidth(widthFraction)
+            .height(height.dp)
+            .alpha(alpha)
+            .clip(RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    )
 }
 
 @Preview(showBackground = true)
