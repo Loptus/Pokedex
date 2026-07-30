@@ -24,17 +24,7 @@ import it.kata.pokedex.presentation.common.previewLoaded
 import it.kata.pokedex.presentation.common.previewRefs
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * The saved entries, in Pokedex order, drawn with the same row as the list.
- *
- * Every row here is a favorite by definition, so its heart is filled and the only thing it can do is
- * remove. The rows arrive as pointers and fill in one at a time exactly like in the list: what was
- * saved is which entry, not what it looked like.
- *
- * [favorites] being null means the database has not answered yet, and nothing is drawn for that one
- * frame. Showing the empty state instead would tell someone with twenty favorites that they have
- * none, and then take it back.
- */
+/** Every row here is saved by definition, so its heart is filled and can only remove. */
 @Composable
 fun FavoritesScreen(
     favorites: List<PokemonRef>?,

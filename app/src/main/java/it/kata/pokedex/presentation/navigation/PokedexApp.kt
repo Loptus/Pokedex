@@ -15,12 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import it.kata.pokedex.presentation.favorites.FavoritesRoute
 import it.kata.pokedex.presentation.list.PokemonListRoute
 
-/**
- * The whole app below the theme: two tabs, one at a time.
- *
- * The current tab is read back from the navigation graph rather than kept in a state of its own, so
- * there is a single source of truth about where the user is.
- */
+/** The current tab is read back from the graph, so there is one source of truth about where we are. */
 @Composable
 fun PokedexApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
@@ -50,11 +45,8 @@ fun PokedexApp(modifier: Modifier = Modifier) {
 }
 
 /**
- * Switching tab, not stacking one on top of the other.
- *
  * `saveState` and `restoreState` are the reason this is not a plain `navigate`: without them, coming
- * back to the list would rebuild it from the top and lose the place the user had scrolled to.
- * `launchSingleTop` keeps tapping the current tab from piling up copies of it.
+ * back to the list would rebuild it from the top and lose where the user had scrolled to.
  */
 private fun NavHostController.switchTab(destination: PokedexDestination) {
     navigate(destination.route) {

@@ -32,13 +32,6 @@ import javax.inject.Inject
 /** Long enough to skip the letters typed on the way to a word, short enough not to feel laggy. */
 private const val SEARCH_DEBOUNCE_MILLIS = 300L
 
-/**
- * Owns the state of the list screen.
- *
- * `cachedIn` keeps the paged pointers across configuration changes, and [rowLoader] keeps the
- * contents that were already fetched, so rotating the device does not send the whole screen back to
- * the API.
- */
 @HiltViewModel
 class PokemonListViewModel @Inject constructor(
     getPokemonPaging: GetPokemonPagingUseCase,
@@ -51,12 +44,9 @@ class PokemonListViewModel @Inject constructor(
     val uiState: StateFlow<PokemonListUiState> = _uiState.asStateFlow()
 
     /**
-     * Only the typing is debounced, and the two halves of the query are debounced separately for a
-     * reason: tapping a chip is one deliberate action and should take effect at once, while typing
-     * arrives one letter at a time and would otherwise fire a search for every prefix.
-     *
-     * An empty name skips the wait too: clearing the field, and the very first load, should not sit
-     * on a timer for no reason.
+     * The two halves of the query are debounced separately: tapping a chip is one deliberate action
+     * and takes effect at once, while typing would otherwise fire a search for every prefix. An
+     * empty name skips the wait too, so clearing the field is not on a timer.
      */
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     private val pagedRefs: Flow<PagingData<PokemonRef>> = combine(
@@ -73,12 +63,9 @@ class PokemonListViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     /**
-     * The paged pointers with the saved ones already marked, so the screen renders a flag instead of
-     * working one out.
-     *
      * The combine sits after `cachedIn` on purpose: what is worth caching across a rotation is the
-     * pages themselves, and marking them is cheap enough to redo whenever the favorites change.
-     * Putting it the other way round would cache the flags too and leave a heart stale.
+     * pages, and marking them is cheap to redo. The other way round would cache the flags too and
+     * leave a heart stale.
      */
     val pokemon: Flow<PagingData<PokemonListItem>> = combine(
         pagedRefs,
@@ -98,17 +85,12 @@ class PokemonListViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Runs in [viewModelScope] and not in the row's own scope on purpose: the row that started the
-     * write can scroll away half a second later, and a saved favorite should not depend on the user
-     * keeping it on screen.
-     */
+    /** In [viewModelScope], not the row's: the row can scroll away while the write is in flight. */
     fun onFavoriteToggle(ref: PokemonRef) {
         viewModelScope.launch { toggleFavorite(ref) }
     }
 
     fun rowState(id: Int): StateFlow<PokemonRowState> = rowLoader.rowState(id)
 
-    /** Suspends in the caller's scope, which is the row's composition: see [PokemonRowLoader]. */
     suspend fun loadRow(ref: PokemonRef) = rowLoader.load(ref)
 }

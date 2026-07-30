@@ -71,8 +71,10 @@ Queste regole valgono sempre e hanno la precedenza sulla voglia di andare veloce
   mapper fanno da rete di sicurezza al posto del controllo del compilatore.
 - **Paginazione:** **Paging 3** (`paging-runtime`, `paging-compose`, `paging-testing`).
 - **Persistenza preferiti:** **Room** (+ Flow reattivo).
-- **Immagini:** **Coil 3** (`coil-compose` + `coil-network-okhttp`, così condivide client e cache
-  HTTP con le chiamate API).
+- **Immagini:** **Coil 3** (`coil-compose` + `coil-network-okhttp`). Coil si costruisce un
+  `OkHttpClient` suo e tiene la propria cache immagini: **non** condivide il client di
+  `NetworkModule`. Condividerlo vorrebbe dire configurare un `ImageLoader` a mano, e il guadagno
+  sarebbe il connection pool, non la cache, che Coil ha comunque separata.
 - **Navigazione:** Navigation Compose con bottom navigation a due tab.
 - **Test:** JUnit4, MockK, Turbine, `kotlinx-coroutines-test`, MockWebServer, Robolectric,
   `paging-testing`.
@@ -125,9 +127,13 @@ Principi:
   dipende da nessuno. DTO ed entity Room **non escono mai** dal layer data.
 - **Il dominio resta puro:** niente colori, niente etichette, niente `Context`. La capitalizzazione
   di un nome e il colore di un tipo sono presentation.
-- **UiState immutabile:** ogni schermata ha una `data class ...UiState` esposta come `StateFlow`.
-  Gli eventi utente entrano come funzioni nel ViewModel. **Niente logica nei composable** oltre al
-  render, e niente costruzione di sorgenti dati dentro un `remember`.
+- **UiState immutabile, e solo stato di UI:** la `data class ...UiState` esposta come `StateFlow`
+  contiene quello che l'utente ha digitato e scelto (la query, i filtri selezionati), **non i dati**
+  che arrivano dai layer sotto. I dati si espongono come flusso a parte, accanto alla UiState. Una
+  schermata che non ha stato di UI proprio non ha una UiState: espone il flusso dei dati e basta,
+  invece di incartarlo in una classe che esisterebbe per simmetria. Gli eventi utente entrano come
+  funzioni nel ViewModel. **Niente logica nei composable** oltre al render, e niente costruzione di
+  sorgenti dati dentro un `remember`.
 - **Route stateful, Screen stateless:** `XxxRoute` prende il ViewModel, raccoglie lo stato e passa
   valori semplici a `XxxScreen`, che resta previewabile e testabile da sola.
 - **Gestione esiti:** wrapper sealed per successo ed errore, mai eccezioni nude fino alla UI. Stati
@@ -320,8 +326,19 @@ Regole:
 - **Niente logica di business nei composable.**
 - Funzioni piccole, nominate con chiarezza, un motivo per cambiare ciascuna.
 - Dependency injection ovunque, niente singleton manuali o `object` con stato.
-- I commenti spiegano **perché**, non cosa: le decisioni non ovvie (una soglia, un default
-  sovrascritto, un fallback) vanno annotate sul posto.
+- **Commenti al minimo.** Il primo strumento per spiegare il codice è il codice: nomi parlanti,
+  funzioni piccole, una responsabilità per file. Un commento si scrive solo quando resta qualcosa che
+  il codice non può dire da sé:
+  - una scelta contestabile, con il trade-off che è stato accettato;
+  - una trappola della API o di una libreria, che il lettore non può indovinare;
+  - una soglia o un default sovrascritto, con il motivo del numero;
+  - un meccanismo davvero non ovvio, dove serve capire come sta insieme.
+
+  Non si commenta cosa fa una dichiarazione se il nome lo dice già, e non si scrive KDoc per
+  simmetria su classi ovvie: `RemoveFavoriteUseCase` che chiama `repository.remove(id)` non ha niente
+  da spiegare. La stessa spiegazione non si ripete in due file: sta dove la decisione vive, gli altri
+  al massimo la citano. Ogni commento è codice da mantenere allineato, e una cosa in più che può
+  mentire quando il resto cambia.
 
 ## 9. Build e verifica
 
@@ -380,20 +397,26 @@ Vale per README, commit e commenti in italiano:
 - **Preferiti salvati con Room**: tabella `favorite_pokemon` a tre colonne (`id`, `name`,
   `detailUrl`), toggle in transazione, `Flow<Set<Int>>` osservato dal ViewModel, cuore su ogni riga
   della lista. Sopravvive al riavvio.
+- **Pagina preferiti e bottom navigation** a due tab. `PokedexApp` è `Scaffold` più `NavigationBar`
+  più `NavHost`, e `MainActivity` non fa altro che chiamarlo. Le tab conservano stato e posizione
+  (`saveState` e `restoreState`). La pagina mostra i preferiti in ordine di Pokédex, riusa la riga
+  della lista e ne carica il contenuto per riga visibile allo stesso modo; lì il cuore può solo
+  rimuovere.
+- **Quello che le due schermate condividono sta in `presentation/common/`**: `PokemonRowState`,
+  `PokemonRowLoader`, e in `components/` la riga, i chip dei tipi, i placeholder, il divider e
+  l'empty state. In `presentation/list/` resta ciò che è solo della lista (header, campo di ricerca,
+  chip dei filtri, stati di caricamento e di errore del paging).
 - Test su tutti i layer, compresi test Compose su JVM con Robolectric e test Room in memoria.
-  **94 al momento dell'ultimo aggiornamento**, tutti verdi.
+  **107 al momento dell'ultimo aggiornamento**, tutti verdi.
+- **README.md** in italiano, come da sezione 10: build, architettura, scelte con i loro costi, cosa
+  è tagliato e cosa si farebbe con più tempo.
 
 ### Cosa manca, in ordine
 
-1. **Pagina preferiti e bottom navigation** a due tab. `navigation-compose` è già in `:app`, oggi
-   inutilizzato. La pagina riusa `PokemonRow` senza modifiche: legge i puntatori dal database e
-   carica il contenuto per riga visibile, esattamente come la lista. Servono la query `ORDER BY id`,
-   uno `ObserveFavoritesUseCase` e un `RemoveFavoriteUseCase`.
-2. **README.md** in italiano, come da sezione 10.
-3. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`,
+1. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`,
    `androidx-arch-core-testing` e il bundle `android-testing` (nessun test strumentato).
    `app-cash-turbine` invece adesso serve, la usano i test dei preferiti.
-4. **Icona adattiva**, opzionale.
+2. **Icona adattiva**, opzionale.
 
 ### Decisioni già prese, da non rimettere in discussione
 
@@ -418,8 +441,26 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
   una scrittura fallita si vede da sola. Il costo, accettato, è che un errore di disco resta muto.
 - **Niente dispatcher iniettato nel repository dei preferiti**: Room esce dal main thread da sé, a
   differenza di `PokemonRepositoryImpl` che invece lo inietta.
-- La navigazione **non esiste ancora nel codice**, nemmeno come parametro o stringa: è la regola 2
-  della sezione 2, e va rispettata anche adesso che è il prossimo step.
+- **La UiState contiene solo stato di UI, i dati si espongono a parte** (sezione 4). `uiState` esiste
+  solo nella lista, dove tiene query e tipi selezionati; i preferiti non hanno stato di UI proprio e
+  quindi non hanno una UiState, espongono `favorites` e basta.
+- **Rotte di navigazione come stringhe**, tenute insieme in un enum con icona ed etichetta. Le rotte
+  type safe vorrebbero il plugin di serializzazione e il suo runtime per proteggere da un errore che
+  con due destinazioni senza argomenti non si può fare.
+- **`PokemonRowLoader` è uno per ViewModel, non un singleton.** Una cache condivisa risparmierebbe
+  alla seconda schermata un giro dalla cache HTTP, ma crescerebbe finché l'app è viva senza nessuno
+  che decida cosa buttare.
+- **Sui preferiti il cuore rimuove e basta**, con `RemoveFavoriteUseCase`: in quella pagina ogni riga
+  è per definizione salvata, e un toggle esporrebbe una possibilità che non esiste.
+- **`favorites` è `List<PokemonRef>?` con `null` che significa "il database non ha ancora
+  risposto"**, distinto dalla lista vuota. Con l'empty state al posto del nulla, chi ha venti
+  preferiti si vedrebbe dire per un frame che non ne ha.
+- **I commenti sono stati potati alla regola della sezione 8**, dal 24% al 11% di righe. Quello che
+  è rimasto documenta una decisione o una trappola: la soglia 0.179, l'url portato invece che
+  ricostruito, il `combine` dopo `cachedIn`, la delete che fa da domanda nel DAO, i campi nullable
+  per colpa di Gson, `initialLoadSize` esplicito, lo snapshot unico della lista. Gli use case e i
+  modelli non hanno KDoc perché il nome basta, e **non vanno riaggiunti**. La cancellazione di una
+  riga è spiegata **solo** in `PokemonRowLoader.load`: le Route ci rimandano invece di ripeterla.
 
 ### Punti aperti, dichiarati e non dimenticati
 
@@ -433,9 +474,13 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
 - **Niente schermata di dettaglio**, per scelta: va scritto nel README fra le cose tagliate.
 - **I preferiti offline mostrano solo i nomi.** Cachato è l'HTTP di OkHttp, che evita la rete ma non
   la chiamata: la riga passa comunque da `Loading`, Retrofit e Gson. La cache in memoria che rende un
-  contenuto istantaneo è la mappa `rows` di `PokemonListViewModel`, che vive in quel ViewModel e non
-  attraversa le schermate. Condividerla vorrebbe dire spostarla nel repository. Scelta rimandata,
-  non dimenticata: da dire nel README fra i trade-off.
+  contenuto istantaneo è la mappa dentro `PokemonRowLoader`, e ogni ViewModel ha la sua, quindi non
+  attraversa le schermate. Condividerla vorrebbe dire spostarla nel repository o rendere il loader un
+  singleton con una politica di sfratto. Scelta rimandata, non dimenticata: da dire nel README fra i
+  trade-off.
+- **Nessun test end to end sulla navigazione.** `PokedexBottomBar` è testata da sola perché è
+  stateless, ma che toccare una tab cambi davvero schermata non è verificato: servirebbe
+  `hilt-android-testing` per costruire le destinazioni vere.
 - **Il contenuto della riga e il flag preferito restano due assi separati**, `PokemonRowState` e
   `PokemonListItem`. Fonderli in un modello unico per riga costerebbe un flow derivato e una
   coroutine per riga visibile nel ViewModel. Valutato e lasciato com'è.

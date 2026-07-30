@@ -10,9 +10,9 @@ import retrofit2.http.Query
 import retrofit2.http.Url
 
 /**
- * Only the index has a path of its own. Everything else is reached through a url the API handed
- * back, which is why those calls take a [Url] instead of an id: building the address ourselves means
- * guessing, and the ids of alternate forms do not line up with the ids of their species.
+ * Only the index and the types have a path of their own. Everything else takes a [Url] the API
+ * handed back, because the ids of alternate forms do not line up with the ids of their species, so
+ * an address built here would be a guess.
  */
 interface PokeApi {
 
@@ -34,13 +34,8 @@ interface PokeApi {
     ): PokemonSpeciesDto
 
     /**
-     * An entry point like the index, addressed by a name we already own: the same eighteen
-     * `apiName` values the type parsing depends on. This is not an address derived from another
-     * resource's id, which is the thing that has to be followed rather than assembled.
-     *
-     * Worth knowing: the API exposes twenty one types, not eighteen, and two of them (`unknown` and
-     * `shadow`) sit at ids 10001 and 10002. Addressing types by id would walk straight back into the
-     * mismatch that broke the list.
+     * Addressed by name, which we already own. By id it would hit the same mismatch: `unknown` and
+     * `shadow` sit at ids 10001 and 10002.
      */
     @GET("type/{name}")
     suspend fun getType(

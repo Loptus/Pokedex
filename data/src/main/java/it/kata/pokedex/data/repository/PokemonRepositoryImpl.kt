@@ -23,18 +23,9 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Serves the list in two very different sizes.
- *
- * A page is free: the indexes are already in memory, so a page is a slice of them, and browsing,
- * searching and filtering are the same code path with an empty query meaning everything. Nothing is
- * fetched.
- *
- * A row costs two requests, about 12 KB gzipped, and is fetched only when that row is on screen.
- * Cancelling the caller cancels them, which is what makes scrolling quickly past a row cheap.
- *
- * The two requests are sequential, and deliberately so: the address of the description is inside the
- * detail. Running them together would mean assembling that address from the id instead of reading
- * it, and the ids do not line up, so one round trip is the price of being right.
+ * A page is free, a slice of the indexes already in memory. A row costs two requests, and they are
+ * sequential on purpose: the address of the description is inside the detail, so running them
+ * together would mean assembling that address from an id instead of reading it.
  */
 class PokemonRepositoryImpl @Inject constructor(
     private val api: PokeApi,
@@ -55,10 +46,7 @@ class PokemonRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * A missing description is worth an empty line, not a blank row: artwork, name and types are
-     * already there and are most of what the row is for.
-     */
+    /** A missing description is worth an empty line, not a blank row. */
     private suspend fun descriptionOf(detail: PokemonDetailDto): String {
         val url = detail.species?.url?.takeIf { it.isNotBlank() } ?: return ""
 
@@ -71,10 +59,7 @@ class PokemonRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * Not part of [PokemonRepository]: the domain only ever asks for a paging source, so fetching
-     * a single window stays an implementation detail. Visible for its own tests.
-     */
+    /** Not part of [PokemonRepository]: an implementation detail, visible for its own tests. */
     suspend fun getPage(query: PokemonQuery, offset: Int, limit: Int): AppResult<PokemonPage> =
         withContext(dispatcher) {
             resultOf {
@@ -87,11 +72,7 @@ class PokemonRepositoryImpl @Inject constructor(
             }
         }
 
-    /**
-     * Both filters are applied to the pointers, before anything is fetched, so narrowing the list
-     * stays free. The name comes from the index; the types come from the type index and combine
-     * with the name in AND, while the types themselves are a union.
-     */
+    /** Both filters are applied to the pointers, before anything is fetched, so narrowing is free. */
     private suspend fun matching(query: PokemonQuery): List<PokemonRef> {
         val byName = nameIndex.matching(query.name)
         if (query.types.isEmpty()) return byName

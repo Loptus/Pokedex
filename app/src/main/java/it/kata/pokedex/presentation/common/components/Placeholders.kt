@@ -26,11 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * Stands in for a row while the first page is loading.
- *
- * It mirrors the real row closely, so the list does not jump around once the data lands.
- */
+/** Mirrors the real row closely, so the list does not jump around once the data lands. */
 @Composable
 fun PokemonRowPlaceholder(modifier: Modifier = Modifier) {
     Row(
@@ -59,11 +55,6 @@ fun PokemonRowPlaceholder(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Stands in for the types and the description of a row whose request is still in flight.
- *
- * The name is already there, so only what is genuinely missing is drawn as a placeholder.
- */
 @Composable
 fun RowContentsPlaceholder(modifier: Modifier = Modifier) {
     Column(
@@ -76,7 +67,7 @@ fun RowContentsPlaceholder(modifier: Modifier = Modifier) {
     }
 }
 
-/** One grey bar of the skeleton. The alpha pulses so the wait reads as loading, not as a broken layout. */
+/** The alpha pulses so the wait reads as loading, not as a broken layout. */
 @Composable
 private fun PlaceholderBar(
     widthFraction: Float,

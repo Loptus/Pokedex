@@ -32,13 +32,9 @@ import java.io.IOException
 private const val PLACEHOLDER_ROWS = 8
 
 /**
- * The list screen. Nothing more than an adapter: it unpacks [LazyPagingItems] into plain values and
- * hands them to the layout below, which is what makes that layout previewable and testable.
- *
- * [PokemonListContent] takes one immutable snapshot rather than a count plus an accessor, and that
- * matters: narrowing the search shrinks the list, and if the number of rows came from one snapshot
- * while the keys were read from a newer one, Compose would rebuild its key map over indices that no
- * longer exist. Taking both from the same list makes the mismatch impossible to express.
+ * [PokemonListContent] takes one immutable snapshot rather than a count plus an accessor: narrowing
+ * the search shrinks the list, and a count from one snapshot with keys from a newer one had Compose
+ * rebuilding its key map over indices that no longer exist.
  */
 @Composable
 fun PokemonListScreen(
@@ -53,9 +49,9 @@ fun PokemonListScreen(
 ) {
     PokemonListContent(
         rows = pokemon.itemSnapshotList.items,
-        // Reading through LazyPagingItems is what tells Paging how far down the list the user has
-        // got, and is therefore what loads the next page. The bounds check covers the frame where
-        // the rows above are still one snapshot behind the live list.
+        // Reading through LazyPagingItems is what tells Paging how far the user has got, and
+        // therefore what loads the next page. The bounds check covers the frame where the rows
+        // above are still one snapshot behind.
         onRowReached = { index -> if (index < pokemon.itemCount) pokemon[index] },
         refresh = pokemon.loadState.refresh,
         append = pokemon.loadState.append,
@@ -71,14 +67,8 @@ fun PokemonListScreen(
 }
 
 /**
- * The layout, with no idea that Paging exists.
- *
- * Header and search field stay above every state: an empty result has to leave the user somewhere
- * to type, and an error has to leave them a way to change the query rather than only retry.
- *
- * The two failures are told apart on purpose. Losing the first page leaves an empty screen, so it
- * gets the full error state; losing a later page leaves a usable list, so the retry goes quietly at
- * the bottom.
+ * Header and search field stay above every state, so an empty result or an error still leaves the
+ * user somewhere to type.
  */
 @Composable
 private fun PokemonListContent(

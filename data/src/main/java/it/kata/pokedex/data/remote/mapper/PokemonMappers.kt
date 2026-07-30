@@ -15,12 +15,7 @@ private val TRAILING_ID = Regex("""/(\d+)/?$""")
 /** Collapses the newlines, form feeds and double spaces the API ships inside the flavour text. */
 private val WHITESPACE = Regex("\\s+")
 
-/**
- * Turns an index entry into a pointer, or null when it is unusable.
- *
- * The url is kept as it came. The id is read out of it only to key the list row, never to build
- * another address: see [PokemonRef].
- */
+/** The id is read out of the url only to key the list row, never to build another address. */
 fun NamedResourceDto.toRef(): PokemonRef? {
     val name = name?.takeIf { it.isNotBlank() } ?: return null
     val url = url?.takeIf { it.isNotBlank() } ?: return null
@@ -29,12 +24,7 @@ fun NamedResourceDto.toRef(): PokemonRef? {
     return PokemonRef(id = id, name = name, detailUrl = url)
 }
 
-/**
- * Turns a detail payload into the domain model, or null when the entry is unusable.
- *
- * Returning null instead of throwing keeps one broken entry from taking down the whole page: the
- * caller drops it and the other nineteen still reach the screen.
- */
+/** Null instead of an exception, so one broken entry does not take the whole page down with it. */
 fun PokemonDetailDto.toDomain(description: String): Pokemon? {
     val id = id ?: return null
     val name = name?.takeIf { it.isNotBlank() } ?: return null
@@ -51,11 +41,8 @@ fun PokemonDetailDto.toDomain(description: String): Pokemon? {
 }
 
 /**
- * Picks the first English entry and cleans it up.
- *
- * The API stores the text as it appeared in the games, wrapped for their text boxes, so it arrives
- * with literal `\n` and `\f` inside. Rendering it untouched would break the line in the middle of
- * a word.
+ * The text arrives wrapped for the text boxes of the games, with literal `\n` and `\f` inside, so
+ * rendering it untouched would break a line in the middle of a word.
  */
 fun PokemonSpeciesDto.toDescription(): String =
     flavorTextEntries.orEmpty()
@@ -65,10 +52,7 @@ fun PokemonSpeciesDto.toDescription(): String =
         ?.trim()
         .orEmpty()
 
-/**
- * Official artwork first because it is the large, clean image; the small sprite is the fallback.
- * Both can be missing, and the model allows that.
- */
+/** Official artwork first because it is the large, clean image; the sprite is the fallback. */
 private fun PokemonDetailDto.artworkUrl(): String? =
     sprites?.other?.officialArtwork?.frontDefault?.takeIf { it.isNotBlank() }
         ?: sprites?.frontDefault?.takeIf { it.isNotBlank() }

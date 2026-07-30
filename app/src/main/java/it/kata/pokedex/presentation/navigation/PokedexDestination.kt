@@ -5,12 +5,8 @@ import androidx.annotation.StringRes
 import it.kata.pokedex.R
 
 /**
- * The two tabs, and everything the bottom bar needs to draw one.
- *
- * The routes are plain strings rather than the type safe ones: neither destination takes an
- * argument, so type safety would guard against a mistake that cannot be made here, at the cost of
- * the serialization plugin and its runtime. An enum keeps the two in one place, which is what
- * actually prevents a typo.
+ * Plain string routes rather than the type safe ones: neither destination takes an argument, so type
+ * safety would cost the serialization plugin to guard against a mistake that cannot be made here.
  */
 enum class PokedexDestination(
     val route: String,

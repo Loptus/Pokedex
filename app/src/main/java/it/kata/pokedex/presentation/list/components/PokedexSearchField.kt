@@ -21,13 +21,6 @@ import androidx.compose.ui.unit.dp
 import it.kata.pokedex.R
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * The search field from the mockup: rounded, filled, always visible under the header.
- *
- * It searches by name only. The mockup has a single field for name and type, but the types went to
- * a filter of their own: a list of chips shows which types exist instead of asking the user to guess
- * them, and it keeps the query unambiguous for the layers underneath.
- */
 @Composable
 fun PokedexSearchField(
     query: String,

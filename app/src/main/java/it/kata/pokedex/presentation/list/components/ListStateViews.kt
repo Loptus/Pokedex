@@ -22,9 +22,7 @@ import androidx.compose.ui.unit.dp
 import it.kata.pokedex.R
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * The first page failed, so there is nothing else on screen: the retry takes the whole area.
- */
+/** The first page failed, so there is nothing else on screen: the retry takes the whole area. */
 @Composable
 fun ListErrorState(
     onRetry: () -> Unit,
@@ -52,10 +50,7 @@ fun ListErrorState(
     }
 }
 
-/**
- * A later page failed. The list above is still perfectly usable, so the retry stays small and out
- * of the way instead of wiping the screen.
- */
+/** A later page failed, and the list above is still usable, so the retry stays out of the way. */
 @Composable
 fun ListAppendError(
     onRetry: () -> Unit,

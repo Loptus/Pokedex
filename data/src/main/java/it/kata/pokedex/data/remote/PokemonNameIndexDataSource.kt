@@ -11,16 +11,9 @@ import javax.inject.Singleton
 private const val INDEX_LIMIT = 100_000
 
 /**
- * Every Pokemon the API knows about, fetched once and then answered from memory.
- *
- * Two reasons for taking the whole thing instead of paging it. The first is that the API has no
- * fuzzy search, so `GET /pokemon/{name}` would never find "char": filtering locally is the only way
- * to search at all. The second is arithmetic, measured against the real API and gzipped: the entire
- * index is about 11.7 KB, while the two requests that fill a single row are 12 KB. Paging the index
- * would optimise the one part that costs nothing.
- *
- * Kept in memory rather than in Room: it is derived data that has to be refetched whenever the API
- * grows, so persisting it would only add a cache to invalidate.
+ * The whole index in one request, then answered from memory. The API has no fuzzy search, so
+ * filtering locally is the only way to search at all, and gzipped the entire index is 11.7 KB
+ * against the 12 KB that one row costs: paging it would optimise the part that is already free.
  */
 @Singleton
 class PokemonNameIndexDataSource @Inject constructor(
@@ -30,10 +23,6 @@ class PokemonNameIndexDataSource @Inject constructor(
     private val mutex = Mutex()
     private var refs: List<PokemonRef>? = null
 
-    /**
-     * Entries whose name contains [query], in the order the API lists them, so results stay by
-     * Pokedex number. A blank query matches everything, which is what plain browsing asks for.
-     */
     suspend fun matching(query: String): List<PokemonRef> {
         val all = index()
         return if (query.isBlank()) {
@@ -44,9 +33,9 @@ class PokemonNameIndexDataSource @Inject constructor(
     }
 
     /**
-     * The download happens while holding the lock on purpose: callers that arrive during the first
+     * The download happens while holding the lock on purpose: callers arriving during the first
      * fetch wait for it instead of each firing a request of their own. A failure leaves the index
-     * unset, so the next attempt tries again rather than caching the emptiness.
+     * unset, so the next attempt retries instead of caching the emptiness.
      */
     private suspend fun index(): List<PokemonRef> = mutex.withLock {
         refs ?: api.getPokemonIndex(limit = INDEX_LIMIT)

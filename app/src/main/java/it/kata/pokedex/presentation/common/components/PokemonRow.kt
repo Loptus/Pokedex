@@ -35,15 +35,8 @@ import it.kata.pokedex.presentation.common.previewRefs
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**
- * One row of the list, straight from the mockup: artwork, name, type chips, two lines of
- * description. Stateless: it renders what it is given.
- *
- * The name comes from [ref] and is there from the first frame, because the index already knows it.
- * Everything else arrives with [state], once this row's own request comes back.
- *
- * The heart is there from the first frame too, and works there: what gets saved is the pointer,
- * which the row has before its contents arrive. Waiting for the description to land would be a
- * button disabled for no reason the user can see.
+ * The name and the heart are there from the first frame, because both come from [ref]: the index
+ * knows the name, and what a heart saves is the pointer. Everything else waits for [state].
  */
 @Composable
 fun PokemonRow(
@@ -99,8 +92,7 @@ fun PokemonRow(
                     )
                 }
 
-                // Nothing to draw for a failed row: it keeps its name, and trying again is a
-                // matter of scrolling away and back.
+                // A failed row keeps its name and drops the rest.
                 state is PokemonRowState.Failed -> Unit
 
                 else -> RowContentsPlaceholder()

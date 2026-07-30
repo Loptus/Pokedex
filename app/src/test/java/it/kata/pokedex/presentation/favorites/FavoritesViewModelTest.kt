@@ -66,10 +66,7 @@ class FavoritesViewModelTest {
         assertEquals(listOf(charmander), viewModel.favorites.value)
     }
 
-    /**
-     * The removal runs in the ViewModel's scope, not in the row's, and this is where it matters
-     * most: removing a row is precisely what takes that row's composition away.
-     */
+    /** Removing a row is precisely what takes that row's composition away. */
     @Test
     fun `removing outlives the row that asked for it`() = runTest {
         favorites.hold = CompletableDeferred()
@@ -85,7 +82,6 @@ class FavoritesViewModelTest {
         assertEquals(listOf(1), favorites.removed)
     }
 
-    /** The saved entries arrive as pointers, so this page fetches its rows just like the list. */
     @Test
     fun `a row starts out loading and fills in on its own`() = runTest {
         val viewModel = viewModel()
@@ -101,7 +97,6 @@ class FavoritesViewModelTest {
         assertEquals(listOf(1), repository.requestedRows)
     }
 
-    /** Only answers for single rows: this screen never pages, so paging is left unimplemented. */
     private class StubPokemonRepository : PokemonRepository {
 
         val requestedRows = mutableListOf<Int>()

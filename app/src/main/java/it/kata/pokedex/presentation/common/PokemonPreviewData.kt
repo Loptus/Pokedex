@@ -5,10 +5,8 @@ import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 
 /**
- * Fixtures for the @Preview functions only, shared by every screen that draws a Pokemon row.
- *
- * The descriptions are written here rather than copied from the real Pokedex entries: the app pulls
- * the genuine text from the API, so there is no reason to bake game text into the repo.
+ * The descriptions are written here rather than copied from the real Pokedex entries: the genuine
+ * text comes from the API at runtime, so there is no reason to bake game text into the repo.
  */
 internal val previewRefs = listOf(
     PokemonRef(id = 1, name = "bulbasaur", detailUrl = ""),
@@ -16,7 +14,6 @@ internal val previewRefs = listOf(
     PokemonRef(id = 25, name = "pikachu", detailUrl = ""),
 )
 
-/** The loaded state of a preview row, for the previews that show a filled in list. */
 internal fun previewLoaded(ref: PokemonRef): PokemonRowState.Loaded =
     PokemonRowState.Loaded(previewPokemon.getValue(ref.id))
 

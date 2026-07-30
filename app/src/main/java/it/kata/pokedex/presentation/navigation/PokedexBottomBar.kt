@@ -11,10 +11,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * The two tabs. Stateless: it is told which one is current and reports which one was tapped, so it
- * knows nothing about navigation and can be previewed and tested on its own.
- */
 @Composable
 fun PokedexBottomBar(
     current: PokedexDestination,
@@ -29,8 +25,7 @@ fun PokedexBottomBar(
                 icon = {
                     Icon(
                         painter = painterResource(destination.icon),
-                        // The label right below is the accessible name already: describing the icon
-                        // too would have a screen reader say it twice.
+                        // The label below is the accessible name already.
                         contentDescription = null,
                     )
                 },

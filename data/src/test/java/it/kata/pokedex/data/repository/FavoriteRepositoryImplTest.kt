@@ -20,9 +20,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The repository and the DAO are tested together against a real in-memory database, because taken
- * apart there is almost nothing left: the toggle is one SQL transaction, and a mocked DAO would only
- * confirm that the repository calls the method the test told it to call.
+ * Repository and DAO together against a real in-memory database: the toggle is one SQL transaction,
+ * and a mocked DAO would only confirm that the repository calls what the test told it to call.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -94,10 +93,7 @@ class FavoriteRepositoryImplTest {
         }
     }
 
-    /**
-     * Pokedex order, not the order they were saved in, which is why the table has no column
-     * recording when a favorite was added.
-     */
+    /** Pokedex order, not the order they were saved in. */
     @Test
     fun `lists the favorites by pokedex number`() = runTest(dispatcher) {
         val pikachu = PokemonRef(id = 25, name = "pikachu", detailUrl = "url/25")
@@ -119,7 +115,6 @@ class FavoriteRepositoryImplTest {
         assertEquals(listOf(charmander), repository.favorites().first())
     }
 
-    /** The page can only ever remove what it is showing, but a double tap must not be an error. */
     @Test
     fun `removing something that was never saved does nothing`() = runTest(dispatcher) {
         repository.toggle(bulbasaur)
@@ -140,12 +135,8 @@ class FavoriteRepositoryImplTest {
     }
 
     /**
-     * The pointer is stored whole, address included, and this reads the columns rather than the
-     * ids because the address is the part that would go missing quietly.
-     *
-     * Rebuilding it from the id is the mistake this project already paid for: past 10000 the ids of
-     * the entries and of their species do not line up, so a favorite alternate form saved without
-     * its address would come back unloadable.
+     * Reads the columns rather than the ids: the address is the part that would go missing quietly,
+     * and a favorite alternate form saved without it would come back unloadable.
      */
     @Test
     fun `keeps the address it was given`() = runTest(dispatcher) {

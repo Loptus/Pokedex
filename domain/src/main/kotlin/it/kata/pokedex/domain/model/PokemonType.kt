@@ -1,12 +1,8 @@
 package it.kata.pokedex.domain.model
 
 /**
- * The eighteen official Pokemon types.
- *
- * [apiName] is the exact value used by the PokeAPI, so this enum is the single source of truth
- * both for parsing responses and for building the type filter in the UI.
- *
- * Colors and labels are deliberately absent: they belong to the presentation layer.
+ * The API also serves `stellar`, `unknown` and `shadow`. They are left out on purpose, and the
+ * mapper drops them.
  */
 enum class PokemonType(val apiName: String) {
     NORMAL("normal"),
@@ -31,10 +27,7 @@ enum class PokemonType(val apiName: String) {
     companion object {
         private val byApiName = entries.associateBy(PokemonType::apiName)
 
-        /**
-         * Returns null when the value is not one of the known types, so a type added to the API
-         * later is skipped instead of breaking the whole response.
-         */
+        /** Null for anything unknown, so a type added to the API later does not break a response. */
         fun fromApiName(apiName: String): PokemonType? = byApiName[apiName.trim().lowercase()]
     }
 }

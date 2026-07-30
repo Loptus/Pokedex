@@ -22,7 +22,6 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): PokedexDatabase =
         Room.databaseBuilder(context, PokedexDatabase::class.java, DATABASE_NAME).build()
 
-    /** Provided on its own so the repository depends on the one table it uses, not on the database. */
     @Provides
     fun provideFavoriteDao(database: PokedexDatabase): FavoriteDao = database.favoriteDao()
 }

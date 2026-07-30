@@ -9,11 +9,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /**
- * Favorites in memory, shared by the tests of both screens.
- *
  * One list is the source of truth and the ids are derived from it, so the fake cannot drift into a
- * state the real database could never be in. How the toggle is actually stored is Room's business,
- * and it has its own test in the data module.
+ * state the real database could never be in.
  */
 class FakeFavoriteRepository : FavoriteRepository {
 

@@ -23,14 +23,8 @@ import it.kata.pokedex.presentation.theme.contentColorOn
 import androidx.compose.ui.res.stringResource
 
 /**
- * A row of chips, one per type, multiple selection.
- *
- * A deliberate departure from the mockup, which has a single field for both name and type. Chips
- * show which types exist instead of asking the user to guess them, they can be combined, and they
- * keep the query unambiguous for the layers underneath.
- *
- * Selected chips take the colour of their type, with the label switched to black or white by
- * luminance so every one of the eighteen stays readable.
+ * A deliberate departure from the mockup, which has a single field for both name and type: chips
+ * show which types exist instead of asking the user to guess them, and they can be combined.
  */
 @Composable
 fun TypeFilterRow(

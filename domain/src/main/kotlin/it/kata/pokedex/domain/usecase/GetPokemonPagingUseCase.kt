@@ -12,10 +12,6 @@ import javax.inject.Inject
 /** Twenty per page, as required. */
 private const val PAGE_SIZE = 20
 
-/**
- * The only way the list gets its data. Keeping the [Pager] here, rather than in the ViewModel,
- * is what lets the ViewModel stay clear of the repository.
- */
 class GetPokemonPagingUseCase @Inject constructor(
     private val repository: PokemonRepository,
 ) {

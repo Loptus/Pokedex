@@ -11,10 +11,7 @@ import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/**
- * The bar alone, without navigation: whether tapping a tab actually swaps the screen is Navigation
- * Compose's job, and testing it here would need Hilt on top to build the real destinations.
- */
+/** The bar alone: testing that a tab swaps the screen would need Hilt to build the destinations. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class PokedexBottomBarTest {

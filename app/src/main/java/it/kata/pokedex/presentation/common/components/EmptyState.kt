@@ -14,12 +14,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
-/**
- * Nothing to show, and a line saying what to do about it rather than restating the obvious.
- *
- * The wording is a parameter because the two screens are empty for opposite reasons: one because a
- * search found nothing, the other because nothing has been saved yet.
- */
 @Composable
 fun EmptyState(
     title: String,

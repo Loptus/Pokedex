@@ -21,18 +21,11 @@ import javax.inject.Singleton
 private const val BASE_URL = "https://pokeapi.co/api/v2/"
 private const val CACHE_SIZE_BYTES = 10L * 1024 * 1024
 
-/**
- * Building a page costs one list call plus two per entry, so the client is tuned for that shape
- * rather than for the occasional single request.
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    /**
-     * The API sends cache friendly headers and its data barely ever changes, so a disk cache turns
-     * a page the user scrolls back to into no network work at all.
-     */
+    /** The API sends cache friendly headers, so a disk cache turns a revisited row into no work. */
     @Provides
     @Singleton
     fun provideCache(@ApplicationContext context: Context): Cache =

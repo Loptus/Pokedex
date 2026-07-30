@@ -26,11 +26,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Regression test for a crash that only happens once a LazyColumn is actually laid out.
- *
- * Narrowing the search shrinks the list under the screen's feet. If the number of rows and the keys
- * of those rows do not come from the same snapshot, Compose rebuilds its key map over indices that
- * no longer exist and throws `IndexOutOfBoundsException`. Typing "zera" was enough to trigger it.
+ * Regression test for a crash that only happens once a LazyColumn is laid out: with the row count
+ * and the row keys read from different snapshots, narrowing the search threw
+ * `IndexOutOfBoundsException`. Typing "zera" was enough.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -45,7 +43,6 @@ class PokemonListScreenTest {
     private val query = MutableStateFlow("")
     private val saved = MutableStateFlow<Set<Int>>(emptySet())
 
-    /** Marked the way the ViewModel marks them, because the screen only ever sees decided flags. */
     private val paged = combine(
         query.flatMapLatest { current ->
             Pager(
@@ -99,11 +96,7 @@ class PokemonListScreenTest {
         compose.onNodeWithText("No Pokémon found").assertDoesNotExist()
     }
 
-    /**
-     * The heart is drawn from the pointer alone, so it has to work on a row whose contents have not
-     * arrived: every row in this test is still loading, which is the case that would break if the
-     * heart ever started depending on the loaded Pokemon.
-     */
+    /** Every row here is still loading, which is the case the heart must keep working in. */
     @Test
     fun `the heart works before the row's contents arrive`() {
         val toggled = mutableListOf<PokemonRef>()
@@ -139,7 +132,6 @@ class PokemonListScreenTest {
         compose.waitForIdle()
     }
 
-    /** Pages the names below, narrowed by a query, the way the real source does. */
     private class FilteredRefs(private val query: String) : PagingSource<Int, PokemonRef>() {
 
         override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PokemonRef> {

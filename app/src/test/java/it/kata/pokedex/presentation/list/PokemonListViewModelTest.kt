@@ -50,11 +50,8 @@ class PokemonListViewModelTest {
     )
 
     /**
-     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which would hand
-     * the screen sixty rows to fill on the first load instead of twenty.
-     *
-     * Two windows rather than one because Paging prefetches the following page as soon as the first
-     * is consumed. The point is that it asks for pages, not for the whole list.
+     * Guards `initialLoadSize`: Paging defaults it to three times the page size. Two windows because
+     * Paging prefetches the following page as soon as the first is consumed.
      */
     @Test
     fun `asks for one page at a time`() = runTest {
@@ -89,10 +86,6 @@ class PokemonListViewModelTest {
         assertEquals("ch", viewModel.uiState.value.query)
     }
 
-    /**
-     * The reason for the debounce: typing "char" must not fire a search for "c", "ch" and "cha" on
-     * the way.
-     */
     @Test
     fun `waits for the typing to settle before searching`() = runTest {
         val viewModel = viewModel()
@@ -137,10 +130,6 @@ class PokemonListViewModelTest {
         assertEquals(setOf(PokemonType.WATER), viewModel.uiState.value.selectedTypes)
     }
 
-    /**
-     * Tapping a chip is one deliberate action, so it must not sit on the typing timer. This is why
-     * the two halves of the query are debounced separately.
-     */
     @Test
     fun `toggling a type filters straight away, with no debounce`() = runTest {
         val viewModel = viewModel()
@@ -156,7 +145,6 @@ class PokemonListViewModelTest {
         )
     }
 
-    /** The name is still debounced even while a type is on, and the two travel together. */
     @Test
     fun `a type and a name reach the repository as one query`() = runTest {
         val viewModel = viewModel()
@@ -189,10 +177,6 @@ class PokemonListViewModelTest {
         assertEquals("squirtle", state.pokemon.name)
     }
 
-    /**
-     * A row is composed again every time it comes back into view. Without the cache that would be
-     * two requests each time.
-     */
     @Test
     fun `fetches a row once however many times it comes back`() = runTest {
         val viewModel = viewModel()
@@ -206,10 +190,7 @@ class PokemonListViewModelTest {
         assertEquals(listOf(7), repository.requestedRows)
     }
 
-    /**
-     * The point of running the load in the caller's scope: when the row leaves the screen Compose
-     * cancels it, and the row must not be left claiming to be loaded.
-     */
+    /** A row cancelled halfway must not be left claiming to be loaded. */
     @Test
     fun `a cancelled row keeps nothing and is fetched again next time`() = runTest {
         repository.hold = CompletableDeferred()
@@ -249,10 +230,6 @@ class PokemonListViewModelTest {
         assertIs<PokemonRowState.Loaded>(viewModel.rowState(id = 7).value)
     }
 
-    /**
-     * The screen is handed a decided flag, never the set to look into, so this is where the matching
-     * has to be checked.
-     */
     @Test
     fun `the items say which ones are saved`() = runTest {
         favorites.saved.value = listOf(
@@ -290,10 +267,7 @@ class PokemonListViewModelTest {
         assertEquals(listOf(7), viewModel.pokemon.asSnapshot().filter { it.isFavorite }.map { it.ref.id })
     }
 
-    /**
-     * The write runs in the ViewModel's scope and not in the caller's, so a row that leaves the
-     * screen while the save is still in flight must not take the save down with it.
-     */
+    /** The save must not go down with the row that started it. */
     @Test
     fun `saving a favorite outlives the row that asked for it`() = runTest {
         favorites.hold = CompletableDeferred()
@@ -309,10 +283,6 @@ class PokemonListViewModelTest {
         assertEquals(listOf(7), favorites.toggled)
     }
 
-    /**
-     * A paging source of its own rather than the real one from the data module: this test is about
-     * what the ViewModel and the use cases ask for, not about how the data layer fetches it.
-     */
     private class RecordingRepository(private val total: Int) : PokemonRepository {
 
         val requestedLimits = mutableListOf<Int>()

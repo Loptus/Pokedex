@@ -25,10 +25,7 @@ class FavoritesScreenTest {
     private val bulbasaur = PokemonRef(id = 1, name = "bulbasaur", detailUrl = "url/1")
     private val charmander = PokemonRef(id = 4, name = "charmander", detailUrl = "url/4")
 
-    /**
-     * The distinction the nullable list exists for: someone with favorites must not be told, even
-     * for a frame, that they have none.
-     */
+    /** Someone with favorites must not be told, even for a frame, that they have none. */
     @Test
     fun `says nothing before the database has answered`() {
         showFavorites(favorites = null)
@@ -51,7 +48,6 @@ class FavoritesScreenTest {
         compose.onNodeWithText("Charmander").assertIsDisplayed()
     }
 
-    /** Every row here is saved, so its heart can only take it away. */
     @Test
     fun `the heart removes the row it belongs to`() {
         val removed = mutableListOf<Int>()

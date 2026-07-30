@@ -12,12 +12,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
- * Barely more than the DAO, and that is the point: the interface is what the domain depends on, and
- * Room is what happens to be behind it today.
- *
- * No injected dispatcher here, unlike [PokemonRepositoryImpl]. Room already runs suspend queries and
- * Flow queries on its own executor, so a `withContext` around them would move work that has already
- * moved.
+ * No injected dispatcher here, unlike [PokemonRepositoryImpl]: Room already runs suspend and Flow
+ * queries on its own executor.
  */
 class FavoriteRepositoryImpl @Inject constructor(
     private val dao: FavoriteDao,
