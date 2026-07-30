@@ -2,7 +2,7 @@ package it.kata.pokedex.data.remote
 
 import androidx.paging.PagingSource
 import it.kata.pokedex.core.AppResult
-import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonPage
 import kotlinx.coroutines.test.runTest
 import java.io.IOException
@@ -58,7 +58,7 @@ class PokemonPagingSourceTest {
 
         val result = source.load(refreshParams(key = null))
 
-        assertIs<PagingSource.LoadResult.Error<Int, Pokemon>>(result)
+        assertIs<PagingSource.LoadResult.Error<Int, PokemonRef>>(result)
         assertEquals(cause, result.throwable)
     }
 
@@ -69,13 +69,7 @@ class PokemonPagingSourceTest {
         AppResult.Success(
             PokemonPage(
                 items = List(size) { index ->
-                    Pokemon(
-                        id = offset + index,
-                        name = "pokemon-${offset + index}",
-                        imageUrl = null,
-                        types = emptyList(),
-                        description = "",
-                    )
+                    PokemonRef(id = offset + index, name = "pokemon-${offset + index}")
                 },
                 hasMore = hasMore,
             ),
@@ -85,7 +79,7 @@ class PokemonPagingSourceTest {
     private suspend fun load(
         key: Int?,
         loadPage: suspend (Int, Int) -> AppResult<PokemonPage>,
-    ): PagingSource.LoadResult.Page<Int, Pokemon> {
+    ): PagingSource.LoadResult.Page<Int, PokemonRef> {
         val result = PokemonPagingSource(loadPage).load(refreshParams(key))
         return assertIs(result)
     }

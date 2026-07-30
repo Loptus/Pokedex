@@ -59,6 +59,23 @@ fun PokemonRowPlaceholder(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Stands in for the types and the description of a row whose request is still in flight.
+ *
+ * The name is already there, so only what is genuinely missing is drawn as a placeholder.
+ */
+@Composable
+fun RowContentsPlaceholder(modifier: Modifier = Modifier) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        PlaceholderBar(widthFraction = 0.3f)
+        PlaceholderBar(widthFraction = 1f)
+        PlaceholderBar(widthFraction = 0.6f)
+    }
+}
+
 /** One grey bar of the skeleton. The alpha pulses so the wait reads as loading, not as a broken layout. */
 @Composable
 private fun PlaceholderBar(

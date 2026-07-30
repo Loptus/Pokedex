@@ -12,8 +12,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.itemKey
-import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.presentation.list.components.ListAppendError
 import it.kata.pokedex.presentation.list.components.ListAppendLoading
 import it.kata.pokedex.presentation.list.components.ListEmptyState
@@ -30,27 +29,32 @@ private const val PLACEHOLDER_ROWS = 8
 
 /**
  * The list screen. Nothing more than an adapter: it unpacks [LazyPagingItems] into plain values and
- * hands them to the layout below.
+ * hands them to the layout below, which is what makes that layout previewable and testable.
  *
- * The split is what makes the layout previewable. Feeding a preview a `LazyPagingItems` is a race
- * against the coroutine that collects the flow, so it renders the skeleton about half the time;
- * plain values render the same way every time.
+ * [PokemonListContent] takes one immutable snapshot rather than a count plus an accessor, and that
+ * matters: narrowing the search shrinks the list, and if the number of rows came from one snapshot
+ * while the keys were read from a newer one, Compose would rebuild its key map over indices that no
+ * longer exist. Taking both from the same list makes the mismatch impossible to express.
  */
 @Composable
 fun PokemonListScreen(
-    pokemon: LazyPagingItems<Pokemon>,
+    pokemon: LazyPagingItems<PokemonRef>,
     query: String,
     onQueryChange: (String) -> Unit,
+    rowFor: @Composable (PokemonRef) -> PokemonRowState,
     modifier: Modifier = Modifier,
 ) {
     PokemonListContent(
+        rows = pokemon.itemSnapshotList.items,
+        // Reading through LazyPagingItems is what tells Paging how far down the list the user has
+        // got, and is therefore what loads the next page. The bounds check covers the frame where
+        // the rows above are still one snapshot behind the live list.
+        onRowReached = { index -> if (index < pokemon.itemCount) pokemon[index] },
         refresh = pokemon.loadState.refresh,
         append = pokemon.loadState.append,
-        itemCount = pokemon.itemCount,
-        keyOf = pokemon.itemKey { it.id },
-        itemAt = { pokemon[it] },
         query = query,
         onQueryChange = onQueryChange,
+        rowFor = rowFor,
         onRetry = pokemon::retry,
         modifier = modifier,
     )
@@ -68,13 +72,13 @@ fun PokemonListScreen(
  */
 @Composable
 private fun PokemonListContent(
+    rows: List<PokemonRef>,
+    onRowReached: (Int) -> Unit,
     refresh: LoadState,
     append: LoadState,
-    itemCount: Int,
-    keyOf: (Int) -> Any,
-    itemAt: (Int) -> Pokemon?,
     query: String,
     onQueryChange: (String) -> Unit,
+    rowFor: @Composable (PokemonRef) -> PokemonRowState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -88,14 +92,15 @@ private fun PokemonListContent(
 
                 refresh is LoadState.Error -> ListErrorState(onRetry = onRetry)
 
-                itemCount == 0 -> ListEmptyState()
+                rows.isEmpty() -> ListEmptyState()
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(count = itemCount, key = keyOf) { index ->
-                        itemAt(index)?.let { pokemon ->
-                            PokemonRow(pokemon = pokemon)
-                            RowDivider()
-                        }
+                    items(count = rows.size, key = { rows[it].id }) { index ->
+                        onRowReached(index)
+
+                        val ref = rows[index]
+                        PokemonRow(ref = ref, state = rowFor(ref))
+                        RowDivider()
                     }
 
                     when (append) {
@@ -132,13 +137,30 @@ private fun RowDivider() {
 private fun PokemonListLoadedPreview() {
     PokedexTheme {
         PokemonListContent(
+            rows = previewRefs,
+            onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = false),
             append = LoadState.NotLoading(endOfPaginationReached = true),
-            itemCount = previewPokemon.size,
-            keyOf = { previewPokemon[it].id },
-            itemAt = { previewPokemon[it] },
             query = "",
             onQueryChange = {},
+            rowFor = { previewLoaded(it) },
+            onRetry = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun PokemonListRowsLoadingPreview() {
+    PokedexTheme {
+        PokemonListContent(
+            rows = previewRefs,
+            onRowReached = {},
+            refresh = LoadState.NotLoading(endOfPaginationReached = false),
+            append = LoadState.NotLoading(endOfPaginationReached = true),
+            query = "",
+            onQueryChange = {},
+            rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
     }
@@ -149,13 +171,13 @@ private fun PokemonListLoadedPreview() {
 private fun PokemonListLoadingPreview() {
     PokedexTheme {
         PokemonListContent(
+            rows = emptyList(),
+            onRowReached = {},
             refresh = LoadState.Loading,
             append = LoadState.NotLoading(endOfPaginationReached = false),
-            itemCount = 0,
-            keyOf = { it },
-            itemAt = { null },
             query = "",
             onQueryChange = {},
+            rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
     }
@@ -166,13 +188,13 @@ private fun PokemonListLoadingPreview() {
 private fun PokemonListEmptyPreview() {
     PokedexTheme {
         PokemonListContent(
+            rows = emptyList(),
+            onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = true),
             append = LoadState.NotLoading(endOfPaginationReached = true),
-            itemCount = 0,
-            keyOf = { it },
-            itemAt = { null },
             query = "zzz",
             onQueryChange = {},
+            rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
     }
@@ -183,13 +205,13 @@ private fun PokemonListEmptyPreview() {
 private fun PokemonListErrorPreview() {
     PokedexTheme {
         PokemonListContent(
+            rows = emptyList(),
+            onRowReached = {},
             refresh = LoadState.Error(IOException("preview")),
             append = LoadState.NotLoading(endOfPaginationReached = false),
-            itemCount = 0,
-            keyOf = { it },
-            itemAt = { null },
             query = "",
             onQueryChange = {},
+            rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
     }
@@ -200,13 +222,13 @@ private fun PokemonListErrorPreview() {
 private fun PokemonListAppendingPreview() {
     PokedexTheme {
         PokemonListContent(
+            rows = previewRefs,
+            onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = false),
             append = LoadState.Loading,
-            itemCount = previewPokemon.size,
-            keyOf = { previewPokemon[it].id },
-            itemAt = { previewPokemon[it] },
             query = "",
             onQueryChange = {},
+            rowFor = { previewLoaded(it) },
             onRetry = {},
         )
     }

@@ -92,8 +92,8 @@ Clean Architecture a tre layer, MVVM nel presentation, Unidirectional Data Flow.
 volontà di chi scrive.
 
 ```
-:domain   kotlin-jvm                domain/model, domain/repository (interfacce), domain/usecase
-:data     com.android.library       data/remote (PokeApi, DTO, mapper), data/repository, core/, di/
+:domain   kotlin-jvm                domain/model, domain/repository (interfacce), domain/usecase, core/
+:data     com.android.library       data/remote (PokeApi, DTO, mapper), data/repository, di/
 :app      com.android.application   presentation/, MainActivity, theme, PokedexApplication
 ```
 
@@ -111,8 +111,9 @@ Regole dei moduli:
   Gson e Room solo in `:data`.
 - **Anche i test rispettano i confini.** Un test in `:app` che ha bisogno di una classe di `:data`
   non è un problema di visibilità, è il segnale che sta testando il layer sbagliato.
-- Quando un util o un wrapper di esito servirà sia a `:domain` sia a `:data`, si estrae un `:core`.
-  Finché serve a uno solo, sta lì: oggi `AppResult` e i qualificatori dei dispatcher sono in `:data`.
+- **`core/` sta in `:domain`.** `AppResult` compare nella firma degli use case, quindi lo leggono sia
+  `:data` sia `:app`: metterlo nel modulo da cui dipendono già entrambi evita un quarto modulo che
+  esisterebbe per un file. I qualificatori dei dispatcher restano in `:data`, che è l'unico a usarli.
 
 Principi:
 
@@ -177,25 +178,35 @@ La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Pun
 | Una pagina di soli nomi, 20 voci | 308 |
 | Un dettaglio | 6.951 |
 | Una species | 5.066 |
-| **Una pagina da 20: dettagli + species** | **240.340** |
+| **Una riga completa (dettaglio + species)** | **12.017** |
 
-Conseguenza architetturale: **l'indice si scarica intero una volta sola** e la lista si pagina in
-memoria. Paginare i nomi via API ottimizzerebbe l'unica cosa che non costa niente (308 byte contro
-240 KB), e in più costringerebbe la prima ricerca ad aspettare il download dell'indice. Con l'indice
-già in memoria, navigazione e ricerca sono **lo stesso percorso di codice**: query vuota significa
-"tutti i nomi".
+Due conseguenze architetturali, entrambe da questi numeri.
+
+**L'indice si scarica intero una volta sola** e la lista si pagina in memoria. Paginare i nomi via
+API ottimizzerebbe l'unica cosa che non costa niente (308 byte), e costringerebbe la prima ricerca ad
+aspettare il download dell'indice. Con l'indice già in memoria, navigazione e ricerca sono **lo
+stesso percorso di codice**: query vuota significa "tutti i nomi".
+
+**Il contenuto di una riga si carica per riga, non per pagina.** Una pagina emette solo
+`PokemonRef(id, name)` e non costa nessuna richiesta, quindi la lista appare subito; ogni riga
+prende i suoi 12 KB quando arriva a schermo. Caricarli per pagina significherebbe 240 KB per venti
+righe di cui l'utente ne vede quattro o cinque.
 
 ### Il problema N+1 e come domarlo
 
-Una pagina da 20 costa fino a 40 chiamate di dettaglio e species. Va gestito:
-
-- Dettagli della pagina caricati **in parallelo controllato** (`coroutineScope` + `async`/`awaitAll`
-  su dispatcher iniettato), mai in sequenza.
+- **Niente caricamento per pagina.** L'unità di caricamento è la riga visibile: `PokemonRef` per
+  paginare, `Pokemon` per la riga caricata.
+- **Le due richieste di una riga vanno in parallelo**, perché l'id è già noto dall'indice: un round
+  trip invece di due.
+- **La cancellazione arriva da `LaunchedEffect`.** Il caricamento della riga gira nello scope della
+  composizione, quindi quando la riga esce dallo schermo Compose lo cancella e Retrofit cancella le
+  richieste. Scorrere veloce non paga le righe superate.
+- **Cache in memoria nel ViewModel**, un `StateFlow` per id: fa da cache (sopravvive
+  all'invalidazione del Paging e alla rotazione) e dà la granularità giusta, perché una riga che
+  arriva ricompone solo se stessa. I **fallimenti non si mettono in cache**, così una riga che torna
+  visibile riprova senza bisogno di UI di errore per riga.
 - **Cache HTTP di OkHttp** attiva: la API manda header cache-friendly e questo abbatte le chiamate
   ripetute.
-- La **descrizione** non serve per far scorrere la lista: si carica **pigramente, solo per le righe
-  effettivamente visibili**, e il risultato si tiene in cache in memoria così sopravvive
-  all'invalidazione del Paging.
 
 ### Paginazione
 

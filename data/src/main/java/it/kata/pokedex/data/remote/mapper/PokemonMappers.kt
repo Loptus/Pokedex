@@ -1,14 +1,33 @@
 package it.kata.pokedex.data.remote.mapper
 
+import it.kata.pokedex.data.remote.dto.NamedResourceDto
 import it.kata.pokedex.data.remote.dto.PokemonDetailDto
 import it.kata.pokedex.data.remote.dto.PokemonSpeciesDto
 import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 
 private const val ENGLISH = "en"
 
+/** The index gives urls like `https://pokeapi.co/api/v2/pokemon/25/`, and the id is the last segment. */
+private val TRAILING_ID = Regex("""/(\d+)/?$""")
+
 /** Collapses the newlines, form feeds and double spaces the API ships inside the flavour text. */
 private val WHITESPACE = Regex("\\s+")
+
+/**
+ * Turns an index entry into a pointer, or null when it is unusable.
+ *
+ * The id comes out of the url because that is the only place the index carries it, and having it up
+ * front is what lets a row ask for its detail and its description at the same time instead of one
+ * after the other.
+ */
+fun NamedResourceDto.toRef(): PokemonRef? {
+    val name = name?.takeIf { it.isNotBlank() } ?: return null
+    val id = url?.let { TRAILING_ID.find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: return null
+
+    return PokemonRef(id = id, name = name)
+}
 
 /**
  * Turns a detail payload into the domain model, or null when the entry is unusable.

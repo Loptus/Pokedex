@@ -1,6 +1,6 @@
 package it.kata.pokedex.presentation.common
 
-import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,25 +15,19 @@ class DisplayTextTest {
 
     @Test
     fun `capitalises the pokemon name coming from the api`() {
-        assertEquals("Bulbasaur", pokemonNamed("bulbasaur").displayName)
+        assertEquals("Bulbasaur", refNamed("bulbasaur").displayName)
     }
 
     @Test
     fun `leaves hyphenated names alone past the first letter`() {
-        assertEquals("Nidoran-f", pokemonNamed("nidoran-f").displayName)
-        assertEquals("Mr-mime", pokemonNamed("mr-mime").displayName)
+        assertEquals("Nidoran-f", refNamed("nidoran-f").displayName)
+        assertEquals("Mr-mime", refNamed("mr-mime").displayName)
     }
 
     @Test
     fun `does not choke on an empty name`() {
-        assertEquals("", pokemonNamed("").displayName)
+        assertEquals("", refNamed("").displayName)
     }
 
-    private fun pokemonNamed(name: String) = Pokemon(
-        id = 1,
-        name = name,
-        imageUrl = null,
-        types = emptyList(),
-        description = "",
-    )
+    private fun refNamed(name: String) = PokemonRef(id = 1, name = name)
 }

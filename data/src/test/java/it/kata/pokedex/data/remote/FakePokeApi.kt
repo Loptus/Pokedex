@@ -11,15 +11,15 @@ import it.kata.pokedex.data.remote.dto.SpritesDto
 import it.kata.pokedex.data.remote.dto.TypeSlotDto
 import kotlinx.coroutines.yield
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Stands in for the network.
  *
  * A name of "broken" comes back without an id, which is how the tests exercise an entry that cannot
- * be mapped. [maxConcurrentDetailCalls] records how many detail calls were in flight at once, which
- * is the only way to tell a parallel load from a sequential one, and [indexCalls] proves the index
- * is fetched once and not once per page.
+ * be read. The counters are there to prove the things that are otherwise invisible: [indexCalls]
+ * that the index is fetched once, [detailCalls] and [speciesCalls] that turning a page fetches
+ * nothing, and [detailAndSpeciesOverlapped] that a row's two requests do not queue behind each
+ * other.
  */
 class FakePokeApi : PokeApi {
 
@@ -29,9 +29,14 @@ class FakePokeApi : PokeApi {
 
     var indexCalls: Int = 0
         private set
+    var detailCalls: Int = 0
+        private set
+    var speciesCalls: Int = 0
+        private set
 
-    private val detailCallsInFlight = AtomicInteger()
-    var maxConcurrentDetailCalls: Int = 0
+    private var detailInFlight = false
+    private var speciesInFlight = false
+    var detailAndSpeciesOverlapped: Boolean = false
         private set
 
     override suspend fun getPokemonIndex(limit: Int): PokemonIndexDto {
@@ -39,16 +44,19 @@ class FakePokeApi : PokeApi {
         if (failIndexCall) throw IOException("no network")
 
         return PokemonIndexDto(
-            results = allNames.map { NamedResourceDto(name = it, url = "url/$it") },
+            results = allNames.mapIndexed { index, name ->
+                NamedResourceDto(name = name, url = "https://pokeapi.co/api/v2/pokemon/${index + 1}/")
+            },
         )
     }
 
     override suspend fun getPokemonDetail(name: String): PokemonDetailDto {
-        val inFlight = detailCallsInFlight.incrementAndGet()
-        maxConcurrentDetailCalls = maxOf(maxConcurrentDetailCalls, inFlight)
-        // Gives the other coroutines a chance to start, so concurrency is observable.
+        detailCalls++
+        detailInFlight = true
+        // Gives the sibling request a chance to start, so the overlap is observable.
         yield()
-        detailCallsInFlight.decrementAndGet()
+        if (speciesInFlight) detailAndSpeciesOverlapped = true
+        detailInFlight = false
 
         if (name == "broken") return PokemonDetailDto(id = null, name = name)
 
@@ -64,6 +72,12 @@ class FakePokeApi : PokeApi {
     }
 
     override suspend fun getPokemonSpecies(id: Int): PokemonSpeciesDto {
+        speciesCalls++
+        speciesInFlight = true
+        yield()
+        if (detailInFlight) detailAndSpeciesOverlapped = true
+        speciesInFlight = false
+
         if (id in failingSpeciesIds) throw IOException("species unavailable")
 
         return PokemonSpeciesDto(

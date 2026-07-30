@@ -16,6 +16,28 @@ import kotlin.test.assertNull
 class PokemonMappersTest {
 
     @Test
+    fun `reads a ref out of an index entry`() {
+        val ref = NamedResourceDto(name = "pikachu", url = "https://pokeapi.co/api/v2/pokemon/25/").toRef()
+
+        assertEquals(25, ref?.id)
+        assertEquals("pikachu", ref?.name)
+    }
+
+    @Test
+    fun `accepts an index url without the trailing slash`() {
+        assertEquals(25, NamedResourceDto(name = "pikachu", url = ".../pokemon/25").toRef()?.id)
+    }
+
+    /** No id means no way to fetch the description, so the entry is dropped rather than guessed at. */
+    @Test
+    fun `gives up on an index entry with no usable id or name`() {
+        assertNull(NamedResourceDto(name = "pikachu", url = null).toRef())
+        assertNull(NamedResourceDto(name = "pikachu", url = ".../pokemon/").toRef())
+        assertNull(NamedResourceDto(name = null, url = ".../pokemon/25/").toRef())
+        assertNull(NamedResourceDto(name = " ", url = ".../pokemon/25/").toRef())
+    }
+
+    @Test
     fun `prefers the official artwork over the small sprite`() {
         val detail = detailDto(
             sprites = SpritesDto(

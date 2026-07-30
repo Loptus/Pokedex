@@ -3,7 +3,9 @@ package it.kata.pokedex.data.repository
 import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.data.remote.FakePokeApi
 import it.kata.pokedex.data.remote.PokemonNameIndexDataSource
+import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.model.PokemonPage
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -12,7 +14,6 @@ import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 class PokemonRepositoryImplTest {
 
@@ -29,77 +30,29 @@ class PokemonRepositoryImplTest {
     )
 
     @Test
-    fun `builds a page out of the list, the details and the species`() = runTest {
-        api.allNames = listOf("bulbasaur", "charizard")
+    fun `a page is a slice of the index`() = runTest {
+        api.allNames = listOf("bulbasaur", "charmander", "charizard")
 
-        val page = repository().getPage(query = "", offset = 0, limit = 20).valueOrFail()
+        val page = repository().getPage(query = "", offset = 1, limit = 20).valueOrFail()
 
-        assertEquals(listOf("bulbasaur", "charizard"), page.items.map { it.name })
-        assertEquals(listOf(PokemonType.GRASS), page.items.first().types)
-        assertEquals("Description of bulbasaur.", page.items.first().description)
+        assertEquals(listOf("charmander", "charizard"), page.items.map { it.name })
+        assertEquals(false, page.hasMore)
     }
 
     /**
-     * The whole point of the parallel load: twenty entries must not cost twenty round trips one
-     * after the other.
+     * The whole reason the list is paged as pointers: turning a page must not fetch anything. The
+     * two requests a row costs are paid when that row is on screen, by [PokemonRepositoryImpl.pokemon].
      */
     @Test
-    fun `loads the details of a page in parallel`() = runTest {
+    fun `a page costs no detail and no species requests`() = runTest {
         api.allNames = List(20) { "pokemon-$it" }
 
         repository().getPage(query = "", offset = 0, limit = 20).valueOrFail()
 
-        assertTrue(
-            api.maxConcurrentDetailCalls > 1,
-            "details were fetched one at a time (max concurrency ${api.maxConcurrentDetailCalls})",
-        )
+        assertEquals(0, api.detailCalls)
+        assertEquals(0, api.speciesCalls)
     }
 
-    @Test
-    fun `works out hasMore from the index, not from how many entries survived parsing`() = runTest {
-        api.allNames = listOf("bulbasaur", "broken")
-
-        val page = repository().getPage("", offset = 0, limit = 20).valueOrFail()
-
-        assertEquals(1, page.items.size)
-        assertEquals(false, page.hasMore)
-    }
-
-    /** One row without its description is better than a page that refuses to load. */
-    @Test
-    fun `keeps the entry when only its description fails`() = runTest {
-        api.allNames = listOf("bulbasaur")
-        api.failingSpeciesIds = setOf(1)
-
-        val page = repository().getPage("", offset = 0, limit = 20).valueOrFail()
-
-        assertEquals(1, page.items.size)
-        assertEquals("", page.items.first().description)
-    }
-
-    @Test
-    fun `drops an entry whose detail cannot be parsed and keeps the others`() = runTest {
-        api.allNames = listOf("bulbasaur", "broken", "charizard")
-
-        val page = repository().getPage("", offset = 0, limit = 20).valueOrFail()
-
-        assertEquals(listOf("bulbasaur", "charizard"), page.items.map { it.name })
-    }
-
-    @Test
-    fun `turns a failing index call into a failure instead of throwing`() = runTest {
-        api.failIndexCall = true
-
-        val result = repository().getPage("", offset = 0, limit = 20)
-
-        assertIs<AppResult.Failure>(result)
-        assertIs<IOException>(result.cause)
-    }
-
-    /**
-     * The reason for taking the whole index up front: scrolling costs detail calls, never another
-     * request for the list of names.
-     */
     @Test
     fun `fetches the index once, however many pages are asked for`() = runTest {
         api.allNames = List(60) { "pokemon-$it" }
@@ -133,22 +86,6 @@ class PokemonRepositoryImplTest {
         val page = repository().getPage("char", offset = 0, limit = 20).valueOrFail()
 
         assertEquals(listOf("charmander", "charmeleon", "charizard"), page.items.map { it.name })
-        assertEquals(false, page.hasMore)
-    }
-
-    /** A search pages through the matches held in memory, so it has to slice them. */
-    @Test
-    fun `a search pages through its matches`() = runTest {
-        api.allNames = List(30) { "char-$it" }
-        val repository = repository()
-
-        val firstPage = repository.getPage("char", offset = 0, limit = 20).valueOrFail()
-        val secondPage = repository.getPage("char", offset = 20, limit = 20).valueOrFail()
-
-        assertEquals(20, firstPage.items.size)
-        assertEquals(true, firstPage.hasMore)
-        assertEquals(10, secondPage.items.size)
-        assertEquals(false, secondPage.hasMore)
     }
 
     @Test
@@ -161,8 +98,67 @@ class PokemonRepositoryImplTest {
         assertEquals(false, page.hasMore)
     }
 
+    @Test
+    fun `turns a failing index call into a failure instead of throwing`() = runTest {
+        api.failIndexCall = true
+
+        val result = repository().getPage("", offset = 0, limit = 20)
+
+        assertIs<AppResult.Failure>(result)
+        assertIs<IOException>(result.cause)
+    }
+
+    @Test
+    fun `builds a row out of its detail and its description`() = runTest {
+        api.allNames = listOf("bulbasaur")
+
+        val pokemon = repository().pokemon(PokemonRef(id = 1, name = "bulbasaur")).valueOrFail()
+
+        assertEquals("bulbasaur", pokemon.name)
+        assertEquals(listOf(PokemonType.GRASS), pokemon.types)
+        assertEquals("artwork/bulbasaur.png", pokemon.imageUrl)
+        assertEquals("Description of bulbasaur.", pokemon.description)
+    }
+
+    /**
+     * The id is known from the index, so the two requests a row needs do not have to queue behind
+     * each other: one round trip instead of two, for every row on screen.
+     */
+    @Test
+    fun `fetches a row's detail and description at the same time`() = runTest {
+        api.allNames = listOf("bulbasaur")
+
+        repository().pokemon(PokemonRef(id = 1, name = "bulbasaur")).valueOrFail()
+
+        assertEquals(true, api.detailAndSpeciesOverlapped)
+    }
+
+    @Test
+    fun `reports a failing row instead of throwing`() = runTest {
+        api.allNames = listOf("bulbasaur")
+        api.failingSpeciesIds = setOf(1)
+
+        val result = repository().pokemon(PokemonRef(id = 1, name = "bulbasaur"))
+
+        assertIs<AppResult.Failure>(result)
+    }
+
+    @Test
+    fun `reports a row whose detail cannot be read instead of returning a half built one`() = runTest {
+        api.allNames = listOf("broken")
+
+        val result = repository().pokemon(PokemonRef(id = 1, name = "broken"))
+
+        assertIs<AppResult.Failure>(result)
+    }
+
     private fun AppResult<PokemonPage>.valueOrFail(): PokemonPage {
         assertIs<AppResult.Success<PokemonPage>>(this)
+        return value
+    }
+
+    private fun AppResult<Pokemon>.valueOrFail(): Pokemon {
+        assertIs<AppResult.Success<Pokemon>>(this)
         return value
     }
 }

@@ -24,20 +24,28 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import it.kata.pokedex.R
-import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.presentation.common.displayName
-import it.kata.pokedex.presentation.list.previewPokemon
+import it.kata.pokedex.presentation.list.PokemonRowState
+import it.kata.pokedex.presentation.list.previewLoaded
+import it.kata.pokedex.presentation.list.previewRefs
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**
  * One row of the list, straight from the mockup: artwork, name, type chips, two lines of
  * description. Stateless: it renders what it is given.
+ *
+ * The name comes from [ref] and is there from the first frame, because the index already knows it.
+ * Everything else arrives with [state], once this row's own request comes back.
  */
 @Composable
 fun PokemonRow(
-    pokemon: Pokemon,
+    ref: PokemonRef,
+    state: PokemonRowState,
     modifier: Modifier = Modifier,
 ) {
+    val pokemon = (state as? PokemonRowState.Loaded)?.pokemon
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -46,10 +54,10 @@ fun PokemonRow(
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(pokemon.imageUrl)
+                .data(pokemon?.imageUrl)
                 .crossfade(true)
                 .build(),
-            contentDescription = stringResource(R.string.cd_pokemon_artwork, pokemon.displayName),
+            contentDescription = stringResource(R.string.cd_pokemon_artwork, ref.displayName),
             modifier = Modifier
                 .size(64.dp)
                 .clip(RoundedCornerShape(8.dp))
@@ -63,32 +71,63 @@ fun PokemonRow(
                 .padding(start = 16.dp),
         ) {
             Text(
-                text = pokemon.displayName,
+                text = ref.displayName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                pokemon.types.forEach { TypeChip(it) }
+
+            when {
+                pokemon != null -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        pokemon.types.forEach { TypeChip(it) }
+                    }
+                    Text(
+                        text = pokemon.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                // Nothing to draw for a failed row: it keeps its name, and trying again is a
+                // matter of scrolling away and back.
+                state is PokemonRowState.Failed -> Unit
+
+                else -> RowContentsPlaceholder()
             }
-            Text(
-                text = pokemon.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun PokemonRowPreview() {
-    PokedexTheme { PokemonRow(pokemon = previewPokemon[0]) }
+private fun PokemonRowLoadedPreview() {
+    PokedexTheme {
+        PokemonRow(ref = previewRefs[0], state = previewLoaded(previewRefs[0]))
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun PokemonRowSingleTypePreview() {
-    PokedexTheme { PokemonRow(pokemon = previewPokemon[2]) }
+    PokedexTheme {
+        PokemonRow(ref = previewRefs[2], state = previewLoaded(previewRefs[2]))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PokemonRowLoadingPreview() {
+    PokedexTheme {
+        PokemonRow(ref = previewRefs[1], state = PokemonRowState.Loading)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PokemonRowFailedPreview() {
+    PokedexTheme {
+        PokemonRow(ref = previewRefs[1], state = PokemonRowState.Failed)
+    }
 }

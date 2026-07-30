@@ -3,18 +3,25 @@ package it.kata.pokedex.presentation.list
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import androidx.paging.testing.asSnapshot
+import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
+import it.kata.pokedex.domain.usecase.GetPokemonUseCase
 import it.kata.pokedex.utils.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PokemonListViewModelTest {
@@ -24,12 +31,14 @@ class PokemonListViewModelTest {
 
     private val repository = RecordingRepository(total = 45)
 
-    private fun viewModel() = PokemonListViewModel(GetPokemonPagingUseCase(repository))
+    private fun viewModel() = PokemonListViewModel(
+        getPokemonPaging = GetPokemonPagingUseCase(repository),
+        getPokemon = GetPokemonUseCase(repository),
+    )
 
     /**
-     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which would ask
-     * the API for sixty entries at once and, at two extra calls each, turn the first screen into
-     * well over a hundred requests.
+     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which would hand
+     * the screen sixty rows to fill on the first load instead of twenty.
      *
      * Two windows rather than one because Paging prefetches the following page as soon as the first
      * is consumed. The point is that it asks for pages, not for the whole list.
@@ -49,6 +58,14 @@ class PokemonListViewModelTest {
         assertEquals(listOf(0, 20, 40), repository.requestedOffsets)
     }
 
+    /** Paging the pointers must not drag their contents along with it. */
+    @Test
+    fun `paging does not fetch any row contents`() = runTest {
+        viewModel().pokemon.asSnapshot { scrollTo(index = 44) }
+
+        assertEquals(emptyList(), repository.requestedRows)
+    }
+
     @Test
     fun `the field follows every keystroke, with no waiting`() = runTest {
         val viewModel = viewModel()
@@ -61,7 +78,7 @@ class PokemonListViewModelTest {
 
     /**
      * The reason for the debounce: typing "char" must not fire a search for "c", "ch" and "cha" on
-     * the way, each of which would cost a page of requests.
+     * the way.
      */
     @Test
     fun `waits for the typing to settle before searching`() = runTest {
@@ -95,34 +112,127 @@ class PokemonListViewModelTest {
         assertEquals(listOf("", "char", ""), repository.requestedQueries)
     }
 
+    @Test
+    fun `a row starts out loading and fills in on its own`() = runTest {
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle")
+
+        assertEquals(PokemonRowState.Loading, viewModel.rowState(id = 7).value)
+
+        launch { viewModel.loadRow(ref) }
+        advanceUntilIdle()
+
+        val state = viewModel.rowState(id = 7).value
+        assertIs<PokemonRowState.Loaded>(state)
+        assertEquals("squirtle", state.pokemon.name)
+    }
+
+    /**
+     * A row is composed again every time it comes back into view. Without the cache that would be
+     * two requests each time.
+     */
+    @Test
+    fun `fetches a row once however many times it comes back`() = runTest {
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle")
+
+        repeat(3) {
+            launch { viewModel.loadRow(ref) }
+            advanceUntilIdle()
+        }
+
+        assertEquals(listOf(7), repository.requestedRows)
+    }
+
+    /**
+     * The point of running the load in the caller's scope: when the row leaves the screen Compose
+     * cancels it, and the row must not be left claiming to be loaded.
+     */
+    @Test
+    fun `a cancelled row keeps nothing and is fetched again next time`() = runTest {
+        repository.hold = CompletableDeferred()
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle")
+
+        val scrolledPast = launch { viewModel.loadRow(ref) }
+        runCurrent()
+        scrolledPast.cancel()
+        advanceUntilIdle()
+
+        assertEquals(PokemonRowState.Loading, viewModel.rowState(id = 7).value)
+
+        repository.hold = null
+        launch { viewModel.loadRow(ref) }
+        advanceUntilIdle()
+
+        assertIs<PokemonRowState.Loaded>(viewModel.rowState(id = 7).value)
+        assertEquals(listOf(7, 7), repository.requestedRows)
+    }
+
+    /** A failed row is not remembered as failed, so coming back into view tries again. */
+    @Test
+    fun `a failed row is retried when it comes back`() = runTest {
+        repository.failingRowIds = setOf(7)
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle")
+
+        launch { viewModel.loadRow(ref) }
+        advanceUntilIdle()
+        assertEquals(PokemonRowState.Failed, viewModel.rowState(id = 7).value)
+
+        repository.failingRowIds = emptySet()
+        launch { viewModel.loadRow(ref) }
+        advanceUntilIdle()
+
+        assertIs<PokemonRowState.Loaded>(viewModel.rowState(id = 7).value)
+    }
+
     /**
      * A paging source of its own rather than the real one from the data module: this test is about
-     * the windows and the queries the ViewModel and the use case ask for, and it has no business
-     * reaching across into how the data layer fetches them.
+     * what the ViewModel and the use cases ask for, not about how the data layer fetches it.
      */
     private class RecordingRepository(private val total: Int) : PokemonRepository {
 
         val requestedLimits = mutableListOf<Int>()
         val requestedOffsets = mutableListOf<Int>()
         val requestedQueries = mutableListOf<String>()
+        val requestedRows = mutableListOf<Int>()
 
-        override fun pokemonPagingSource(query: String): PagingSource<Int, Pokemon> {
+        var failingRowIds: Set<Int> = emptySet()
+
+        /** Set to keep a row's request pending, so a cancellation can land in the middle of it. */
+        var hold: CompletableDeferred<Unit>? = null
+
+        override suspend fun pokemon(ref: PokemonRef): AppResult<Pokemon> {
+            requestedRows += ref.id
+            hold?.await()
+
+            return if (ref.id in failingRowIds) {
+                AppResult.Failure(IOException("no network"))
+            } else {
+                AppResult.Success(
+                    Pokemon(
+                        id = ref.id,
+                        name = ref.name,
+                        imageUrl = null,
+                        types = emptyList(),
+                        description = "Description of ${ref.name}",
+                    ),
+                )
+            }
+        }
+
+        override fun pokemonPagingSource(query: String): PagingSource<Int, PokemonRef> {
             requestedQueries += query
-            return object : PagingSource<Int, Pokemon>() {
+            return object : PagingSource<Int, PokemonRef>() {
 
-                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
+                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PokemonRef> {
                     val offset = params.key ?: 0
                     requestedLimits += params.loadSize
                     requestedOffsets += offset
 
                     val items = (offset until minOf(offset + params.loadSize, total)).map { index ->
-                        Pokemon(
-                            id = index,
-                            name = "pokemon-$index",
-                            imageUrl = null,
-                            types = emptyList(),
-                            description = "",
-                        )
+                        PokemonRef(id = index, name = "pokemon-$index")
                     }
                     val nextOffset = offset + params.loadSize
 
@@ -133,7 +243,7 @@ class PokemonListViewModelTest {
                     )
                 }
 
-                override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
+                override fun getRefreshKey(state: PagingState<Int, PokemonRef>): Int? = null
             }
         }
     }

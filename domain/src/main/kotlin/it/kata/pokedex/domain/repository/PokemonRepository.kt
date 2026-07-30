@@ -1,7 +1,9 @@
 package it.kata.pokedex.domain.repository
 
 import androidx.paging.PagingSource
+import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 
 /**
  * An interface so the source of the list can be swapped, for a fake in tests or for a different
@@ -13,6 +15,17 @@ import it.kata.pokedex.domain.model.Pokemon
  */
 interface PokemonRepository {
 
-    /** A blank [query] means the whole list; anything else narrows it down by name. */
-    fun pokemonPagingSource(query: String): PagingSource<Int, Pokemon>
+    /**
+     * Pages through the names alone. A blank [query] means the whole list; anything else narrows it
+     * down by name.
+     */
+    fun pokemonPagingSource(query: String): PagingSource<Int, PokemonRef>
+
+    /**
+     * Everything a row shows, for one Pokemon.
+     *
+     * Called per row, once that row is on screen. Cancelling the caller cancels the requests, which
+     * is how scrolling quickly past a row stops paying for it.
+     */
+    suspend fun pokemon(ref: PokemonRef): AppResult<Pokemon>
 }

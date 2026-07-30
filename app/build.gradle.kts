@@ -73,6 +73,14 @@ dependencies {
 
     testImplementation(libs.bundles.unit.testing)
     testImplementation(libs.androidx.paging.testing)
+
+    // Compose tests on the JVM through Robolectric: enough to catch a crash that only happens once
+    // a LazyColumn is actually laid out, without needing a device.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4.android)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation(libs.robolectric)
+
     androidTestImplementation(libs.bundles.android.testing)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

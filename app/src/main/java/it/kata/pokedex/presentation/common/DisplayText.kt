@@ -1,6 +1,6 @@
 package it.kata.pokedex.presentation.common
 
-import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 
 /**
@@ -13,7 +13,11 @@ import it.kata.pokedex.domain.model.PokemonType
  */
 val PokemonType.label: String get() = apiName.capitalizeFirst()
 
-val Pokemon.displayName: String get() = name.capitalizeFirst()
+/**
+ * Taken from the ref rather than from the loaded Pokemon: the name is known from the index, so it
+ * can be on screen before the row's own request comes back.
+ */
+val PokemonRef.displayName: String get() = name.capitalizeFirst()
 
 private fun String.capitalizeFirst(): String =
     replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
