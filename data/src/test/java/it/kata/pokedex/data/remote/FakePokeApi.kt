@@ -14,22 +14,24 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Stands in for the network.
+ * Stands in for the network, paginating [allNames] the way the real endpoint does so that browsing
+ * and the one shot index request both behave realistically.
  *
- * A name of "broken" comes back without an id, which is how the tests exercise an entry that
- * cannot be mapped. [maxConcurrentDetailCalls] records how many detail calls were in flight at
- * once, which is the only way to tell a parallel load from a sequential one.
+ * A name of "broken" comes back without an id, which is how the tests exercise an entry that cannot
+ * be mapped. [maxConcurrentDetailCalls] records how many detail calls were in flight at once, which
+ * is the only way to tell a parallel load from a sequential one.
  */
 class FakePokeApi : PokeApi {
 
-    var pageNames: List<String> = emptyList()
-    var hasNextPage: Boolean = true
+    var allNames: List<String> = emptyList()
     var failListCall: Boolean = false
     var failingSpeciesIds: Set<Int> = emptySet()
 
     var lastLimit: Int = -1
         private set
     var lastOffset: Int = -1
+        private set
+    var listCalls: Int = 0
         private set
 
     private val detailCallsInFlight = AtomicInteger()
@@ -39,12 +41,14 @@ class FakePokeApi : PokeApi {
     override suspend fun getPokemonPage(limit: Int, offset: Int): PokemonPageDto {
         lastLimit = limit
         lastOffset = offset
+        listCalls++
         if (failListCall) throw IOException("no network")
 
+        val window = allNames.drop(offset).take(limit)
         return PokemonPageDto(
-            count = pageNames.size,
-            next = if (hasNextPage) "https://pokeapi.co/api/v2/pokemon?offset=20" else null,
-            results = pageNames.map { NamedResourceDto(name = it, url = "url/$it") },
+            count = allNames.size,
+            next = if (offset + limit < allNames.size) "?offset=${offset + limit}" else null,
+            results = window.map { NamedResourceDto(name = it, url = "url/$it") },
         )
     }
 
@@ -81,9 +85,9 @@ class FakePokeApi : PokeApi {
         )
     }
 
-    private fun idOf(name: String) = pageNames.indexOf(name) + 1
+    private fun idOf(name: String) = allNames.indexOf(name) + 1
 
-    private fun nameOf(id: Int) = pageNames.getOrElse(id - 1) { "unknown" }
+    private fun nameOf(id: Int) = allNames.getOrElse(id - 1) { "unknown" }
 
     private fun typeOf(name: String) = if (name == "bulbasaur") "grass" else "fire"
 }

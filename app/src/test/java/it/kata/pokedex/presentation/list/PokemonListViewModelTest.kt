@@ -7,17 +7,22 @@ import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.utils.MainDispatcherRule
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PokemonListViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val repository = CountingRepository(total = 45)
+    private val repository = RecordingRepository(total = 45)
 
     private fun viewModel() = PokemonListViewModel(GetPokemonPagingUseCase(repository))
 
@@ -44,18 +49,66 @@ class PokemonListViewModelTest {
         assertEquals(listOf(0, 20, 40), repository.requestedOffsets)
     }
 
+    @Test
+    fun `the field follows every keystroke, with no waiting`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onQueryChange("c")
+        viewModel.onQueryChange("ch")
+
+        assertEquals("ch", viewModel.uiState.value.query)
+    }
+
+    /**
+     * The reason for the debounce: typing "char" must not fire a search for "c", "ch" and "cha" on
+     * the way, each of which would cost a page of requests.
+     */
+    @Test
+    fun `waits for the typing to settle before searching`() = runTest {
+        val viewModel = viewModel()
+        backgroundScope.launch { viewModel.pokemon.collect { } }
+        runCurrent()
+
+        viewModel.onQueryChange("c")
+        advanceTimeBy(100)
+        viewModel.onQueryChange("ch")
+        advanceTimeBy(100)
+        viewModel.onQueryChange("char")
+        advanceTimeBy(500)
+        runCurrent()
+
+        assertEquals(listOf("", "char"), repository.requestedQueries)
+    }
+
+    /** Clearing the field is not typing, so it should not sit on the timer. */
+    @Test
+    fun `clearing the query searches straight away`() = runTest {
+        val viewModel = viewModel()
+        backgroundScope.launch { viewModel.pokemon.collect { } }
+        runCurrent()
+
+        viewModel.onQueryChange("char")
+        advanceTimeBy(400)
+        viewModel.onQueryChange("")
+        runCurrent()
+
+        assertEquals(listOf("", "char", ""), repository.requestedQueries)
+    }
+
     /**
      * A paging source of its own rather than the real one from the data module: this test is about
-     * the window the ViewModel and the use case ask for, and it has no business reaching across
-     * into how the data layer fetches it.
+     * the windows and the queries the ViewModel and the use case ask for, and it has no business
+     * reaching across into how the data layer fetches them.
      */
-    private class CountingRepository(private val total: Int) : PokemonRepository {
+    private class RecordingRepository(private val total: Int) : PokemonRepository {
 
         val requestedLimits = mutableListOf<Int>()
         val requestedOffsets = mutableListOf<Int>()
+        val requestedQueries = mutableListOf<String>()
 
-        override fun pokemonPagingSource(): PagingSource<Int, Pokemon> =
-            object : PagingSource<Int, Pokemon>() {
+        override fun pokemonPagingSource(query: String): PagingSource<Int, Pokemon> {
+            requestedQueries += query
+            return object : PagingSource<Int, Pokemon>() {
 
                 override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
                     val offset = params.key ?: 0
@@ -82,5 +135,6 @@ class PokemonListViewModelTest {
 
                 override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
             }
+        }
     }
 }

@@ -12,5 +12,7 @@ import it.kata.pokedex.domain.model.Pokemon
  * `androidx.paging` is a library here, not a layer, so depending on it does not cross a boundary.
  */
 interface PokemonRepository {
-    fun pokemonPagingSource(): PagingSource<Int, Pokemon>
+
+    /** A blank [query] means the whole list; anything else narrows it down by name. */
+    fun pokemonPagingSource(query: String): PagingSource<Int, Pokemon>
 }

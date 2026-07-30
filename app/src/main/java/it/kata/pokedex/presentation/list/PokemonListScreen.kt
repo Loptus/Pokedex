@@ -16,8 +16,10 @@ import androidx.paging.compose.itemKey
 import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.presentation.list.components.ListAppendError
 import it.kata.pokedex.presentation.list.components.ListAppendLoading
+import it.kata.pokedex.presentation.list.components.ListEmptyState
 import it.kata.pokedex.presentation.list.components.ListErrorState
 import it.kata.pokedex.presentation.list.components.PokedexHeader
+import it.kata.pokedex.presentation.list.components.PokedexSearchField
 import it.kata.pokedex.presentation.list.components.PokemonRow
 import it.kata.pokedex.presentation.list.components.PokemonRowPlaceholder
 import it.kata.pokedex.presentation.theme.PokedexTheme
@@ -37,6 +39,8 @@ private const val PLACEHOLDER_ROWS = 8
 @Composable
 fun PokemonListScreen(
     pokemon: LazyPagingItems<Pokemon>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     PokemonListContent(
@@ -45,6 +49,8 @@ fun PokemonListScreen(
         itemCount = pokemon.itemCount,
         keyOf = pokemon.itemKey { it.id },
         itemAt = { pokemon[it] },
+        query = query,
+        onQueryChange = onQueryChange,
         onRetry = pokemon::retry,
         modifier = modifier,
     )
@@ -52,6 +58,9 @@ fun PokemonListScreen(
 
 /**
  * The layout, with no idea that Paging exists.
+ *
+ * Header and search field stay above every state: an empty result has to leave the user somewhere
+ * to type, and an error has to leave them a way to change the query rather than only retry.
  *
  * The two failures are told apart on purpose. Losing the first page leaves an empty screen, so it
  * gets the full error state; losing a later page leaves a usable list, so the retry goes quietly at
@@ -64,19 +73,24 @@ private fun PokemonListContent(
     itemCount: Int,
     keyOf: (Int) -> Any,
     itemAt: (Int) -> Pokemon?,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         PokedexHeader()
+        PokedexSearchField(query = query, onQueryChange = onQueryChange)
 
         Box(modifier = Modifier.fillMaxSize()) {
-            when (refresh) {
-                is LoadState.Loading -> LoadingRows()
+            when {
+                refresh is LoadState.Loading -> LoadingRows()
 
-                is LoadState.Error -> ListErrorState(onRetry = onRetry)
+                refresh is LoadState.Error -> ListErrorState(onRetry = onRetry)
 
-                is LoadState.NotLoading -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                itemCount == 0 -> ListEmptyState()
+
+                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(count = itemCount, key = keyOf) { index ->
                         itemAt(index)?.let { pokemon ->
                             PokemonRow(pokemon = pokemon)
@@ -123,6 +137,8 @@ private fun PokemonListLoadedPreview() {
             itemCount = previewPokemon.size,
             keyOf = { previewPokemon[it].id },
             itemAt = { previewPokemon[it] },
+            query = "",
+            onQueryChange = {},
             onRetry = {},
         )
     }
@@ -138,6 +154,25 @@ private fun PokemonListLoadingPreview() {
             itemCount = 0,
             keyOf = { it },
             itemAt = { null },
+            query = "",
+            onQueryChange = {},
+            onRetry = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun PokemonListEmptyPreview() {
+    PokedexTheme {
+        PokemonListContent(
+            refresh = LoadState.NotLoading(endOfPaginationReached = true),
+            append = LoadState.NotLoading(endOfPaginationReached = true),
+            itemCount = 0,
+            keyOf = { it },
+            itemAt = { null },
+            query = "zzz",
+            onQueryChange = {},
             onRetry = {},
         )
     }
@@ -153,6 +188,8 @@ private fun PokemonListErrorPreview() {
             itemCount = 0,
             keyOf = { it },
             itemAt = { null },
+            query = "",
+            onQueryChange = {},
             onRetry = {},
         )
     }
@@ -168,6 +205,8 @@ private fun PokemonListAppendingPreview() {
             itemCount = previewPokemon.size,
             keyOf = { previewPokemon[it].id },
             itemAt = { previewPokemon[it] },
+            query = "",
+            onQueryChange = {},
             onRetry = {},
         )
     }

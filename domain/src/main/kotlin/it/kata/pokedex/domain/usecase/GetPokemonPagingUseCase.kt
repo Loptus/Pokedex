@@ -24,12 +24,12 @@ class GetPokemonPagingUseCase @Inject constructor(
      * which would ask the API for sixty entries on the first load and, with two extra calls each,
      * turn the first screen into well over a hundred requests.
      */
-    operator fun invoke(): Flow<PagingData<Pokemon>> = Pager(
+    operator fun invoke(query: String): Flow<PagingData<Pokemon>> = Pager(
         config = PagingConfig(
             pageSize = PAGE_SIZE,
             initialLoadSize = PAGE_SIZE,
             enablePlaceholders = false,
         ),
-        pagingSourceFactory = { repository.pokemonPagingSource() },
+        pagingSourceFactory = { repository.pokemonPagingSource(query) },
     ).flow
 }

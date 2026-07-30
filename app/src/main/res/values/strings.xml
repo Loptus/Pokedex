@@ -7,7 +7,12 @@
 
     <string name="cd_pokemon_artwork">Artwork of %1$s</string>
 
+    <string name="search_placeholder">Search by name</string>
+    <string name="action_clear_search">Clear search</string>
+
     <string name="action_retry">Retry</string>
+    <string name="list_empty_title">No Pokémon found</string>
+    <string name="list_empty_body">Try another name, or clear the search to see them all.</string>
     <string name="list_error_title">Something went wrong</string>
     <string name="list_error_body">Check your connection and try again.</string>
     <string name="list_append_error">Could not load more</string>
