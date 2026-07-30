@@ -1,4 +1,4 @@
-package it.kata.pokedex.presentation.list.components
+package it.kata.pokedex.presentation.common.components
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

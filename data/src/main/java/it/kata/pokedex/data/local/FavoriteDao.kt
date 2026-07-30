@@ -18,6 +18,14 @@ abstract class FavoriteDao {
     abstract fun observeIds(): Flow<List<Int>>
 
     /**
+     * Ordered by id, which is the Pokedex number: an order the user already knows, and one that does
+     * not reshuffle the page when an entry is removed and saved again. It is also why the table has
+     * no column recording when a favorite was added.
+     */
+    @Query("SELECT * FROM favorite_pokemon ORDER BY id")
+    abstract fun observeAll(): Flow<List<FavoritePokemonEntity>>
+
+    /**
      * Reads and writes in one transaction, so two quick taps on the same heart cannot interleave
      * into a delete that decides against an insert that already happened.
      *
@@ -30,9 +38,10 @@ abstract class FavoriteDao {
         if (deleteById(favorite.id) == 0) insert(favorite)
     }
 
+    /** Returns how many rows it removed, which is what makes it double as a question in [toggle]. */
+    @Query("DELETE FROM favorite_pokemon WHERE id = :id")
+    abstract suspend fun deleteById(id: Int): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun insert(favorite: FavoritePokemonEntity)
-
-    @Query("DELETE FROM favorite_pokemon WHERE id = :id")
-    protected abstract suspend fun deleteById(id: Int): Int
 }

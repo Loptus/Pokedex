@@ -8,3 +8,9 @@ fun PokemonRef.toEntity(): FavoritePokemonEntity = FavoritePokemonEntity(
     name = name,
     detailUrl = detailUrl,
 )
+
+fun FavoritePokemonEntity.toDomain(): PokemonRef = PokemonRef(
+    id = id,
+    name = name,
+    detailUrl = detailUrl,
+)

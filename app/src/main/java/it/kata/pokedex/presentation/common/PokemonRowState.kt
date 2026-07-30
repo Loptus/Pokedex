@@ -1,4 +1,4 @@
-package it.kata.pokedex.presentation.list
+package it.kata.pokedex.presentation.common
 
 import it.kata.pokedex.domain.model.Pokemon
 

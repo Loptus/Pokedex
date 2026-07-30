@@ -20,6 +20,22 @@ interface FavoriteRepository {
      */
     fun favoriteIds(): Flow<Set<Int>>
 
+    /**
+     * Every favorite, in Pokedex order.
+     *
+     * A separate call from [favoriteIds] rather than something to derive from it: one answers "is
+     * this one saved" for entries the caller already has, the other is the list itself.
+     */
+    fun favorites(): Flow<List<PokemonRef>>
+
     /** Saves [ref] if it is not a favorite yet, and drops it if it already is. */
     suspend fun toggle(ref: PokemonRef)
+
+    /**
+     * Drops the favorite with this id, and does nothing if there is none.
+     *
+     * Separate from [toggle] because the page of saved entries can only ever remove: an action that
+     * could also add would be a possibility that does not exist there.
+     */
+    suspend fun remove(id: Int)
 }

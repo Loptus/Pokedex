@@ -2,6 +2,9 @@
     <string name="header_title_regular">Poké</string>
     <string name="header_title_bold">dex</string>
 
+    <string name="title_pokedex">Pokédex</string>
+    <string name="title_favorites">Preferiti</string>
+
     <string name="cd_pokemon_artwork">Immagine di %1$s</string>
 
     <string name="search_placeholder">Cerca per nome</string>
@@ -17,4 +20,7 @@
     <string name="list_error_title">Qualcosa è andato storto</string>
     <string name="list_error_body">Controlla la connessione e riprova.</string>
     <string name="list_append_error">Non è stato possibile caricare altri risultati</string>
+
+    <string name="favorites_empty_title">Nessun preferito</string>
+    <string name="favorites_empty_body">Tocca il cuore su un Pokémon per tenerlo qui.</string>
 </resources>

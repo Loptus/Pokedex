@@ -1,4 +1,4 @@
-package it.kata.pokedex.presentation.list.components
+package it.kata.pokedex.presentation.common.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,10 +28,10 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import it.kata.pokedex.R
 import it.kata.pokedex.domain.model.PokemonRef
+import it.kata.pokedex.presentation.common.PokemonRowState
 import it.kata.pokedex.presentation.common.displayName
-import it.kata.pokedex.presentation.list.PokemonRowState
-import it.kata.pokedex.presentation.list.previewLoaded
-import it.kata.pokedex.presentation.list.previewRefs
+import it.kata.pokedex.presentation.common.previewLoaded
+import it.kata.pokedex.presentation.common.previewRefs
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**

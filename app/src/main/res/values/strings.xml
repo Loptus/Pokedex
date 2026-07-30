@@ -5,6 +5,10 @@
     <string name="header_title_regular">Poké</string>
     <string name="header_title_bold">dex</string>
 
+    <!-- Tab labels, and the title of the favorites page. Pokédex is the product name everywhere. -->
+    <string name="title_pokedex">Pokédex</string>
+    <string name="title_favorites">Favorites</string>
+
     <string name="cd_pokemon_artwork">Artwork of %1$s</string>
 
     <string name="search_placeholder">Search by name</string>
@@ -21,4 +25,7 @@
     <string name="list_error_title">Something went wrong</string>
     <string name="list_error_body">Check your connection and try again.</string>
     <string name="list_append_error">Could not load more</string>
+
+    <string name="favorites_empty_title">No favorites yet</string>
+    <string name="favorites_empty_body">Tap the heart on a Pokémon to keep it here.</string>
 </resources>

@@ -23,32 +23,6 @@ import it.kata.pokedex.R
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**
- * The search came back with nothing. It says what to do next instead of restating the obvious.
- */
-@Composable
-fun ListEmptyState(modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.list_empty_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = stringResource(R.string.list_empty_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-}
-
-/**
  * The first page failed, so there is nothing else on screen: the retry takes the whole area.
  */
 @Composable
@@ -113,12 +87,6 @@ fun ListAppendLoading(modifier: Modifier = Modifier) {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ListEmptyStatePreview() {
-    PokedexTheme { ListEmptyState() }
 }
 
 @Preview(showBackground = true)

@@ -4,24 +4,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
+import it.kata.pokedex.R
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
+import it.kata.pokedex.presentation.common.PokemonRowState
+import it.kata.pokedex.presentation.common.components.EmptyState
+import it.kata.pokedex.presentation.common.components.PokemonRow
+import it.kata.pokedex.presentation.common.components.PokemonRowPlaceholder
+import it.kata.pokedex.presentation.common.components.RowDivider
+import it.kata.pokedex.presentation.common.previewLoaded
 import it.kata.pokedex.presentation.list.components.ListAppendError
 import it.kata.pokedex.presentation.list.components.ListAppendLoading
-import it.kata.pokedex.presentation.list.components.ListEmptyState
 import it.kata.pokedex.presentation.list.components.ListErrorState
 import it.kata.pokedex.presentation.list.components.PokedexHeader
 import it.kata.pokedex.presentation.list.components.PokedexSearchField
-import it.kata.pokedex.presentation.list.components.PokemonRow
-import it.kata.pokedex.presentation.list.components.PokemonRowPlaceholder
 import it.kata.pokedex.presentation.list.components.TypeFilterRow
 import it.kata.pokedex.presentation.theme.PokedexTheme
 import java.io.IOException
@@ -104,7 +106,10 @@ private fun PokemonListContent(
 
                 refresh is LoadState.Error -> ListErrorState(onRetry = onRetry)
 
-                rows.isEmpty() -> ListEmptyState()
+                rows.isEmpty() -> EmptyState(
+                    title = stringResource(R.string.list_empty_title),
+                    body = stringResource(R.string.list_empty_body),
+                )
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(count = rows.size, key = { rows[it].ref.id }) { index ->
@@ -139,14 +144,6 @@ private fun LoadingRows() {
             RowDivider()
         }
     }
-}
-
-@Composable
-private fun RowDivider() {
-    HorizontalDivider(
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
 }
 
 @Preview(showBackground = true, heightDp = 700)

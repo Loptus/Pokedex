@@ -1,4 +1,4 @@
-package it.kata.pokedex.presentation.list.components
+package it.kata.pokedex.presentation.common.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding

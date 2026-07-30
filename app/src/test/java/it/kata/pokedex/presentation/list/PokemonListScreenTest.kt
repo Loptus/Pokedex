@@ -13,6 +13,7 @@ import androidx.paging.PagingState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.map
 import it.kata.pokedex.domain.model.PokemonRef
+import it.kata.pokedex.presentation.common.PokemonRowState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine

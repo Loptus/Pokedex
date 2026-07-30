@@ -8,12 +8,14 @@ import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
-import it.kata.pokedex.domain.repository.FavoriteRepository
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.domain.usecase.GetPokemonUseCase
 import it.kata.pokedex.domain.usecase.ObserveFavoriteIdsUseCase
 import it.kata.pokedex.domain.usecase.ToggleFavoriteUseCase
+import it.kata.pokedex.presentation.common.PokemonRowLoader
+import it.kata.pokedex.presentation.common.PokemonRowState
+import it.kata.pokedex.utils.FakeFavoriteRepository
 import it.kata.pokedex.utils.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,7 +45,7 @@ class PokemonListViewModelTest {
     private fun viewModel() = PokemonListViewModel(
         getPokemonPaging = GetPokemonPagingUseCase(repository),
         observeFavoriteIds = ObserveFavoriteIdsUseCase(favorites),
-        getPokemon = GetPokemonUseCase(repository),
+        rowLoader = PokemonRowLoader(GetPokemonUseCase(repository)),
         toggleFavorite = ToggleFavoriteUseCase(favorites),
     )
 
@@ -253,7 +255,10 @@ class PokemonListViewModelTest {
      */
     @Test
     fun `the items say which ones are saved`() = runTest {
-        favorites.ids.value = setOf(0, 2)
+        favorites.saved.value = listOf(
+            PokemonRef(id = 0, name = "pokemon-0", detailUrl = "url/0"),
+            PokemonRef(id = 2, name = "pokemon-2", detailUrl = "url/2"),
+        )
 
         val items = viewModel().pokemon.asSnapshot()
 
@@ -362,24 +367,6 @@ class PokemonListViewModelTest {
 
                 override fun getRefreshKey(state: PagingState<Int, PokemonRef>): Int? = null
             }
-        }
-    }
-
-    /** Favorites in memory: the toggle is Room's job, and it has its own test in the data module. */
-    private class FakeFavoriteRepository : FavoriteRepository {
-
-        val ids = MutableStateFlow<Set<Int>>(emptySet())
-        val toggled = mutableListOf<Int>()
-
-        /** Set to keep a write pending, so a cancellation can land in the middle of it. */
-        var hold: CompletableDeferred<Unit>? = null
-
-        override fun favoriteIds(): Flow<Set<Int>> = ids
-
-        override suspend fun toggle(ref: PokemonRef) {
-            hold?.await()
-            toggled += ref.id
-            ids.update { current -> if (ref.id in current) current - ref.id else current + ref.id }
         }
     }
 }

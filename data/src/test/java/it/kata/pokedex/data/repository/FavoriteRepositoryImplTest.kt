@@ -94,6 +94,41 @@ class FavoriteRepositoryImplTest {
         }
     }
 
+    /**
+     * Pokedex order, not the order they were saved in, which is why the table has no column
+     * recording when a favorite was added.
+     */
+    @Test
+    fun `lists the favorites by pokedex number`() = runTest(dispatcher) {
+        val pikachu = PokemonRef(id = 25, name = "pikachu", detailUrl = "url/25")
+
+        repository.toggle(pikachu)
+        repository.toggle(charmander)
+        repository.toggle(bulbasaur)
+
+        assertEquals(listOf(1, 4, 25), repository.favorites().first().map { it.id })
+    }
+
+    @Test
+    fun `removing takes one out and leaves the rest`() = runTest(dispatcher) {
+        repository.toggle(bulbasaur)
+        repository.toggle(charmander)
+
+        repository.remove(bulbasaur.id)
+
+        assertEquals(listOf(charmander), repository.favorites().first())
+    }
+
+    /** The page can only ever remove what it is showing, but a double tap must not be an error. */
+    @Test
+    fun `removing something that was never saved does nothing`() = runTest(dispatcher) {
+        repository.toggle(bulbasaur)
+
+        repository.remove(charmander.id)
+
+        assertEquals(listOf(bulbasaur), repository.favorites().first())
+    }
+
     /** Saving the same entry twice must not leave two rows behind. */
     @Test
     fun `saving again after removing keeps a single entry`() = runTest(dispatcher) {

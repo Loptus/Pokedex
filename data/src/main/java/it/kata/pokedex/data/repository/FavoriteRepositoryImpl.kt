@@ -1,6 +1,8 @@
 package it.kata.pokedex.data.repository
 
 import it.kata.pokedex.data.local.FavoriteDao
+import it.kata.pokedex.data.local.FavoritePokemonEntity
+import it.kata.pokedex.data.local.mapper.toDomain
 import it.kata.pokedex.data.local.mapper.toEntity
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.repository.FavoriteRepository
@@ -29,5 +31,12 @@ class FavoriteRepositoryImpl @Inject constructor(
         .map { it.toSet() }
         .distinctUntilChanged()
 
+    override fun favorites(): Flow<List<PokemonRef>> = dao.observeAll()
+        .map { saved -> saved.map(FavoritePokemonEntity::toDomain) }
+
     override suspend fun toggle(ref: PokemonRef) = dao.toggle(ref.toEntity())
+
+    override suspend fun remove(id: Int) {
+        dao.deleteById(id)
+    }
 }
