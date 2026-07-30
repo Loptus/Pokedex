@@ -56,10 +56,13 @@ class PokemonRepositoryImplTest {
     }
 
     @Test
-    fun `reports hasMore straight from the api instead of guessing from the size`() = runTest {
-        api.allNames = listOf("bulbasaur")
+    fun `works out hasMore from the index, not from how many entries survived parsing`() = runTest {
+        api.allNames = listOf("bulbasaur", "broken")
 
-        assertEquals(false, repository().getPage("", offset = 0, limit = 20).valueOrFail().hasMore)
+        val page = repository().getPage("", offset = 0, limit = 20).valueOrFail()
+
+        assertEquals(1, page.items.size)
+        assertEquals(false, page.hasMore)
     }
 
     /** One row without its description is better than a page that refuses to load. */
@@ -84,8 +87,8 @@ class PokemonRepositoryImplTest {
     }
 
     @Test
-    fun `turns a failing list call into a failure instead of throwing`() = runTest {
-        api.failListCall = true
+    fun `turns a failing index call into a failure instead of throwing`() = runTest {
+        api.failIndexCall = true
 
         val result = repository().getPage("", offset = 0, limit = 20)
 
@@ -93,14 +96,34 @@ class PokemonRepositoryImplTest {
         assertIs<IOException>(result.cause)
     }
 
+    /**
+     * The reason for taking the whole index up front: scrolling costs detail calls, never another
+     * request for the list of names.
+     */
     @Test
-    fun `passes the window it was asked for straight through`() = runTest {
-        api.allNames = emptyList()
+    fun `fetches the index once, however many pages are asked for`() = runTest {
+        api.allNames = List(60) { "pokemon-$it" }
+        val repository = repository()
 
-        repository().getPage("", offset = 40, limit = 20)
+        repository.getPage("", offset = 0, limit = 20).valueOrFail()
+        repository.getPage("", offset = 20, limit = 20).valueOrFail()
+        repository.getPage("char", offset = 0, limit = 20).valueOrFail()
 
-        assertEquals(40, api.lastOffset)
-        assertEquals(20, api.lastLimit)
+        assertEquals(1, api.indexCalls)
+    }
+
+    @Test
+    fun `pages through the whole list a window at a time`() = runTest {
+        api.allNames = List(30) { "pokemon-$it" }
+        val repository = repository()
+
+        val firstPage = repository.getPage("", offset = 0, limit = 20).valueOrFail()
+        val secondPage = repository.getPage("", offset = 20, limit = 20).valueOrFail()
+
+        assertEquals("pokemon-0", firstPage.items.first().name)
+        assertEquals(true, firstPage.hasMore)
+        assertEquals("pokemon-20", secondPage.items.first().name)
+        assertEquals(false, secondPage.hasMore)
     }
 
     @Test

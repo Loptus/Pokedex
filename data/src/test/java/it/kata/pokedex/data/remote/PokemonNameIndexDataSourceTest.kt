@@ -44,7 +44,7 @@ class PokemonNameIndexDataSourceTest {
         index.namesMatching("saur")
         index.namesMatching("turtle")
 
-        assertEquals(1, api.listCalls)
+        assertEquals(1, api.indexCalls)
     }
 
     /**
@@ -57,15 +57,15 @@ class PokemonNameIndexDataSourceTest {
             List(5) { async { index.namesMatching("char") } }.awaitAll()
         }
 
-        assertEquals(1, api.listCalls)
+        assertEquals(1, api.indexCalls)
     }
 
     @Test
     fun `tries again after a failed download instead of caching the emptiness`() = runTest {
-        api.failListCall = true
+        api.failIndexCall = true
         assertFailsWith<IOException> { index.namesMatching("char") }
 
-        api.failListCall = false
+        api.failIndexCall = false
 
         assertEquals(listOf("charmander", "charmeleon", "charizard"), index.namesMatching("char"))
     }

@@ -156,7 +156,7 @@ ViewModel **non chiamano mai un repository direttamente**.
 
 La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Punti verificati:
 
-1. **Lista paginata:** `GET /api/v2/pokemon?limit=20&offset=0` restituisce
+1. **Indice dei nomi:** `GET /api/v2/pokemon?limit=100000` restituisce
    `{ count, next, previous, results: [{ name, url }] }`. **Solo nome e url**, niente sprite, tipi o
    descrizione.
 2. **Dettaglio:** `GET /api/v2/pokemon/{id|name}` per lo sprite
@@ -166,13 +166,28 @@ La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Pun
    `flavor_text_entries[]`. Filtrare `language.name == "en"`, prendere la prima e **ripulirla** dai
    caratteri di controllo `\n`, `\f` e dai doppi spazi, che l'API contiene letteralmente.
 4. **Ricerca per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`.
-5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto.
-   Strategia: scaricare **una volta** l'indice leggero completo (`?limit=100000`, solo nome e url,
-   poche decine di KB), tenerlo in memoria e filtrare in locale per substring.
+5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto,
+   quindi il filtro per substring si fa in locale sull'indice.
+
+### Dove sta davvero il costo (misurato, gzip)
+
+| Chiamata | Byte |
+| --- | --- |
+| Indice completo, 1351 voci | 11.714 |
+| Una pagina di soli nomi, 20 voci | 308 |
+| Un dettaglio | 6.951 |
+| Una species | 5.066 |
+| **Una pagina da 20: dettagli + species** | **240.340** |
+
+Conseguenza architetturale: **l'indice si scarica intero una volta sola** e la lista si pagina in
+memoria. Paginare i nomi via API ottimizzerebbe l'unica cosa che non costa niente (308 byte contro
+240 KB), e in più costringerebbe la prima ricerca ad aspettare il download dell'indice. Con l'indice
+già in memoria, navigazione e ricerca sono **lo stesso percorso di codice**: query vuota significa
+"tutti i nomi".
 
 ### Il problema N+1 e come domarlo
 
-Una pagina da 20 costa 1 chiamata di lista più fino a 40 chiamate di dettaglio e species. Va gestito:
+Una pagina da 20 costa fino a 40 chiamate di dettaglio e species. Va gestito:
 
 - Dettagli della pagina caricati **in parallelo controllato** (`coroutineScope` + `async`/`awaitAll`
   su dispatcher iniettato), mai in sequenza.
@@ -187,7 +202,7 @@ Una pagina da 20 costa 1 chiamata di lista più fino a 40 chiamate di dettaglio 
 - `PagingConfig` con `pageSize = 20` **e `initialLoadSize = 20` esplicito**: il default di Paging è
   tre volte la pagina, che caricherebbe 60 elementi al primo colpo e violerebbe il requisito.
 - `cachedIn(viewModelScope)` sul flusso, così una rotazione dello schermo non ricarica la lista.
-- La chiave di pagina è l'**offset**, la stessa forma che usa la API.
+- La chiave di pagina è l'**offset** dentro l'indice in memoria.
 
 ## 6. UI
 

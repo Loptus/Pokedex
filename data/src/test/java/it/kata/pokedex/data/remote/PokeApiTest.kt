@@ -11,7 +11,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.create
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 /**
  * Proves the wiring between the real JSON shape and the DTOs, which is the part no unit test on
@@ -40,15 +39,14 @@ class PokeApiTest {
     }
 
     @Test
-    fun `reads a page and asks for the right window`() = runTest {
-        server.enqueue(MockResponse(body = PAGE_JSON))
+    fun `reads the index and asks for all of it in one request`() = runTest {
+        server.enqueue(MockResponse(body = INDEX_JSON))
 
-        val page = api.getPokemonPage(limit = 20, offset = 40)
+        val index = api.getPokemonIndex(limit = 100_000)
 
-        assertEquals(1302, page.count)
-        assertEquals(2, page.results?.size)
-        assertEquals("bulbasaur", page.results?.first()?.name)
-        assertEquals("/pokemon?limit=20&offset=40", server.takeRequest().target)
+        assertEquals(2, index.results?.size)
+        assertEquals("bulbasaur", index.results?.first()?.name)
+        assertEquals("/pokemon?limit=100000", server.takeRequest().target)
     }
 
     @Test
@@ -63,12 +61,16 @@ class PokeApiTest {
         assertEquals("front.png", detail.sprites?.frontDefault)
     }
 
-    /** The last page of the API has `next: null`, which is how paging knows it is over. */
+    /** The fields the DTO leaves out must not upset the parsing of the ones it keeps. */
     @Test
-    fun `a null next survives the parsing`() = runTest {
-        server.enqueue(MockResponse(body = """{"count":2,"next":null,"results":[]}"""))
+    fun `ignores the paging fields it does not declare`() = runTest {
+        server.enqueue(
+            MockResponse(
+                body = """{"count":2,"next":null,"previous":null,"results":[{"name":"mew"}]}""",
+            ),
+        )
 
-        assertNull(api.getPokemonPage(limit = 20, offset = 0).next)
+        assertEquals(listOf("mew"), api.getPokemonIndex(limit = 100_000).results?.map { it.name })
     }
 
     @Test
@@ -82,10 +84,10 @@ class PokeApiTest {
     }
 
     private companion object {
-        const val PAGE_JSON = """
+        const val INDEX_JSON = """
             {
-              "count": 1302,
-              "next": "https://pokeapi.co/api/v2/pokemon?offset=60&limit=20",
+              "count": 1351,
+              "next": null,
               "previous": null,
               "results": [
                 { "name": "bulbasaur", "url": "https://pokeapi.co/api/v2/pokemon/1/" },

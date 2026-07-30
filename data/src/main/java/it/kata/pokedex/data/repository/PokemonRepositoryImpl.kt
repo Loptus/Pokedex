@@ -21,16 +21,13 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Builds a page of the list out of three different endpoints.
+ * Builds a page of the list out of the name index plus two endpoints per entry.
  *
- * The API gives only names and urls in the list, so every page costs one call plus two per entry:
- * forty one requests for twenty Pokemon. Two things keep that from being unusable, and both are
- * worth knowing about: the per entry calls run in parallel rather than one after the other, and the
- * OkHttp disk cache means a page already visited costs nothing on the way back.
- *
- * Browsing and searching differ only in where the twenty names come from. Everything after that,
- * which is all of the expensive part, is shared, so there is a single paging path to reason about
- * and a single one to test.
+ * The names all come from memory, so a page is a slice of them and browsing and searching are the
+ * same code path: a blank query simply matches everything. What actually costs something is the
+ * forty calls that turn twenty names into twenty rows, and that is where the effort goes: they run
+ * in parallel rather than one after the other, and the OkHttp disk cache means a page already
+ * visited costs nothing on the way back.
  */
 class PokemonRepositoryImpl @Inject constructor(
     private val api: PokeApi,
@@ -48,33 +45,14 @@ class PokemonRepositoryImpl @Inject constructor(
     suspend fun getPage(query: String, offset: Int, limit: Int): AppResult<PokemonPage> =
         withContext(dispatcher) {
             resultOf {
-                val page = if (query.isBlank()) {
-                    browseNames(offset, limit)
-                } else {
-                    searchNames(query, offset, limit)
-                }
+                val matches = nameIndex.namesMatching(query)
 
-                PokemonPage(items = hydrate(page.names), hasMore = page.hasMore)
+                PokemonPage(
+                    items = hydrate(matches.drop(offset).take(limit)),
+                    hasMore = offset + limit < matches.size,
+                )
             }
         }
-
-    /** No query: the API paginates for us, and `next` says whether to keep going. */
-    private suspend fun browseNames(offset: Int, limit: Int): NamePage {
-        val page = api.getPokemonPage(limit = limit, offset = offset)
-        return NamePage(
-            names = page.results.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
-            hasMore = page.next != null,
-        )
-    }
-
-    /** With a query the matches are already in memory, so a page is just a slice of them. */
-    private suspend fun searchNames(query: String, offset: Int, limit: Int): NamePage {
-        val matches = nameIndex.namesMatching(query)
-        return NamePage(
-            names = matches.drop(offset).take(limit),
-            hasMore = offset + limit < matches.size,
-        )
-    }
 
     /** The expensive half, and the reason it runs in parallel: two calls for each of twenty names. */
     private suspend fun hydrate(names: List<String>): List<Pokemon> = coroutineScope {
@@ -101,6 +79,4 @@ class PokemonRepositoryImpl @Inject constructor(
         } catch (_: Exception) {
             ""
         }
-
-    private class NamePage(val names: List<String>, val hasMore: Boolean)
 }
