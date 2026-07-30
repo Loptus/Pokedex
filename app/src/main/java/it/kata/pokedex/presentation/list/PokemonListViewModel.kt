@@ -6,7 +6,9 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import it.kata.pokedex.core.AppResult
+import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
+import it.kata.pokedex.domain.model.PokemonType
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.domain.usecase.GetPokemonUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -52,22 +55,36 @@ class PokemonListViewModel @Inject constructor(
     private val rows = mutableMapOf<Int, MutableStateFlow<PokemonRowState>>()
 
     /**
-     * The text field reads [uiState], which updates on every keystroke, while the search itself
-     * waits for the typing to settle. Debouncing the state instead would make the field feel stuck.
+     * Only the typing is debounced, and the two halves of the query are debounced separately for a
+     * reason: tapping a chip is one deliberate action and should take effect at once, while typing
+     * arrives one letter at a time and would otherwise fire a search for every prefix.
      *
-     * An empty query skips the wait: clearing the field, and the very first load, should be
-     * immediate rather than sitting on a timer for no reason.
+     * An empty name skips the wait too: clearing the field, and the very first load, should not sit
+     * on a timer for no reason.
      */
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-    val pokemon: Flow<PagingData<PokemonRef>> = _uiState
-        .map { it.query }
+    val pokemon: Flow<PagingData<PokemonRef>> = combine(
+        _uiState
+            .map { it.query }
+            .distinctUntilChanged()
+            .debounce { name -> if (name.isEmpty()) 0L else SEARCH_DEBOUNCE_MILLIS },
+        _uiState
+            .map { it.selectedTypes }
+            .distinctUntilChanged(),
+    ) { name, types -> PokemonQuery(name = name, types = types) }
         .distinctUntilChanged()
-        .debounce { query -> if (query.isEmpty()) 0L else SEARCH_DEBOUNCE_MILLIS }
         .flatMapLatest { query -> getPokemonPaging(query) }
         .cachedIn(viewModelScope)
 
     fun onQueryChange(query: String) {
         _uiState.update { it.copy(query = query) }
+    }
+
+    fun onTypeToggle(type: PokemonType) {
+        _uiState.update { state ->
+            val selected = state.selectedTypes
+            state.copy(selectedTypes = if (type in selected) selected - type else selected + type)
+        }
     }
 
     fun rowState(id: Int): StateFlow<PokemonRowState> = rowFlow(id)
@@ -76,7 +93,7 @@ class PokemonListViewModel @Inject constructor(
      * Fetches one row, and is deliberately a suspend function rather than a `viewModelScope.launch`.
      *
      * The caller is the row's own composition, so when the row scrolls off the screen Compose
-     * cancels this and the two requests underneath it go with it. That is the whole point: a user
+     * cancels this and the requests underneath it go with it. That is the whole point: a user
      * flicking through the list stops paying for the rows they flew past.
      *
      * Already loaded rows return straight away; failures are not remembered, so a row that comes

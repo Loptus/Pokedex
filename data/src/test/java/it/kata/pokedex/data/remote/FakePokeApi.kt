@@ -8,6 +8,8 @@ import it.kata.pokedex.data.remote.dto.PokemonDetailDto
 import it.kata.pokedex.data.remote.dto.PokemonIndexDto
 import it.kata.pokedex.data.remote.dto.PokemonSpeciesDto
 import it.kata.pokedex.data.remote.dto.SpritesDto
+import it.kata.pokedex.data.remote.dto.TypeDto
+import it.kata.pokedex.data.remote.dto.TypeMemberDto
 import it.kata.pokedex.data.remote.dto.TypeSlotDto
 import java.io.IOException
 
@@ -35,7 +37,13 @@ class FakePokeApi : PokeApi {
     var failIndexCall: Boolean = false
     var failingSpeciesUrls: Set<String> = emptySet()
 
+    /** Members of each type, keyed by the api name of the type. */
+    var typeMembers: Map<String, Set<String>> = emptyMap()
+    var failingTypes: Set<String> = emptySet()
+
     var indexCalls: Int = 0
+        private set
+    var typeCalls: Int = 0
         private set
     var detailCalls: Int = 0
         private set
@@ -75,6 +83,17 @@ class FakePokeApi : PokeApi {
                 other = OtherSpritesDto(ArtworkDto("artwork/${entry.name}.png")),
             ),
             species = NamedResourceDto(name = entry.name, url = entry.speciesUrl),
+        )
+    }
+
+    override suspend fun getType(name: String): TypeDto {
+        typeCalls++
+        if (name in failingTypes) throw IOException("type unavailable")
+
+        return TypeDto(
+            pokemon = typeMembers[name].orEmpty().map {
+                TypeMemberDto(NamedResourceDto(name = it, url = "url/$it"))
+            },
         )
     }
 

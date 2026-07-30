@@ -3,6 +3,7 @@ package it.kata.pokedex.domain.usecase
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.repository.PokemonRepository
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ class GetPokemonPagingUseCase @Inject constructor(
      * `initialLoadSize` has to be set explicitly. Paging defaults it to three times the page size,
      * which would hand the screen sixty rows to fill on the first load instead of twenty.
      */
-    operator fun invoke(query: String): Flow<PagingData<PokemonRef>> = Pager(
+    operator fun invoke(query: PokemonQuery): Flow<PagingData<PokemonRef>> = Pager(
         config = PagingConfig(
             pageSize = PAGE_SIZE,
             initialLoadSize = PAGE_SIZE,

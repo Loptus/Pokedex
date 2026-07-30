@@ -3,6 +3,7 @@ package it.kata.pokedex.domain.repository
 import androidx.paging.PagingSource
 import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
 
 /**
@@ -16,10 +17,10 @@ import it.kata.pokedex.domain.model.PokemonRef
 interface PokemonRepository {
 
     /**
-     * Pages through the names alone. A blank [query] means the whole list; anything else narrows it
-     * down by name.
+     * Pages through the pointers alone. An empty [query] means the whole list; anything else
+     * narrows it down by name, by type, or by both.
      */
-    fun pokemonPagingSource(query: String): PagingSource<Int, PokemonRef>
+    fun pokemonPagingSource(query: PokemonQuery): PagingSource<Int, PokemonRef>
 
     /**
      * Everything a row shows, for one Pokemon.

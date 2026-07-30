@@ -5,7 +5,9 @@ import androidx.paging.PagingState
 import androidx.paging.testing.asSnapshot
 import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.domain.model.Pokemon
+import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
+import it.kata.pokedex.domain.model.PokemonType
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.domain.usecase.GetPokemonUseCase
@@ -94,7 +96,7 @@ class PokemonListViewModelTest {
         advanceTimeBy(500)
         runCurrent()
 
-        assertEquals(listOf("", "char"), repository.requestedQueries)
+        assertEquals(listOf("", "char"), repository.requestedQueries.map { it.name })
     }
 
     /** Clearing the field is not typing, so it should not sit on the timer. */
@@ -109,7 +111,56 @@ class PokemonListViewModelTest {
         viewModel.onQueryChange("")
         runCurrent()
 
-        assertEquals(listOf("", "char", ""), repository.requestedQueries)
+        assertEquals(listOf("", "char", ""), repository.requestedQueries.map { it.name })
+    }
+
+    @Test
+    fun `toggling a type adds it, and toggling it again takes it away`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onTypeToggle(PokemonType.FIRE)
+        viewModel.onTypeToggle(PokemonType.WATER)
+        assertEquals(setOf(PokemonType.FIRE, PokemonType.WATER), viewModel.uiState.value.selectedTypes)
+
+        viewModel.onTypeToggle(PokemonType.FIRE)
+        assertEquals(setOf(PokemonType.WATER), viewModel.uiState.value.selectedTypes)
+    }
+
+    /**
+     * Tapping a chip is one deliberate action, so it must not sit on the typing timer. This is why
+     * the two halves of the query are debounced separately.
+     */
+    @Test
+    fun `toggling a type filters straight away, with no debounce`() = runTest {
+        val viewModel = viewModel()
+        backgroundScope.launch { viewModel.pokemon.collect { } }
+        runCurrent()
+
+        viewModel.onTypeToggle(PokemonType.FIRE)
+        runCurrent()
+
+        assertEquals(
+            listOf(emptySet(), setOf(PokemonType.FIRE)),
+            repository.requestedQueries.map { it.types },
+        )
+    }
+
+    /** The name is still debounced even while a type is on, and the two travel together. */
+    @Test
+    fun `a type and a name reach the repository as one query`() = runTest {
+        val viewModel = viewModel()
+        backgroundScope.launch { viewModel.pokemon.collect { } }
+        runCurrent()
+
+        viewModel.onTypeToggle(PokemonType.FIRE)
+        viewModel.onQueryChange("char")
+        advanceTimeBy(500)
+        runCurrent()
+
+        assertEquals(
+            PokemonQuery(name = "char", types = setOf(PokemonType.FIRE)),
+            repository.requestedQueries.last(),
+        )
     }
 
     @Test
@@ -195,7 +246,7 @@ class PokemonListViewModelTest {
 
         val requestedLimits = mutableListOf<Int>()
         val requestedOffsets = mutableListOf<Int>()
-        val requestedQueries = mutableListOf<String>()
+        val requestedQueries = mutableListOf<PokemonQuery>()
         val requestedRows = mutableListOf<Int>()
 
         var failingRowIds: Set<Int> = emptySet()
@@ -222,7 +273,7 @@ class PokemonListViewModelTest {
             }
         }
 
-        override fun pokemonPagingSource(query: String): PagingSource<Int, PokemonRef> {
+        override fun pokemonPagingSource(query: PokemonQuery): PagingSource<Int, PokemonRef> {
             requestedQueries += query
             return object : PagingSource<Int, PokemonRef>() {
 

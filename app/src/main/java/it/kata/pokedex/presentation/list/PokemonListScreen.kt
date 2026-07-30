@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import it.kata.pokedex.domain.model.PokemonRef
+import it.kata.pokedex.domain.model.PokemonType
 import it.kata.pokedex.presentation.list.components.ListAppendError
 import it.kata.pokedex.presentation.list.components.ListAppendLoading
 import it.kata.pokedex.presentation.list.components.ListEmptyState
@@ -21,6 +22,7 @@ import it.kata.pokedex.presentation.list.components.PokedexHeader
 import it.kata.pokedex.presentation.list.components.PokedexSearchField
 import it.kata.pokedex.presentation.list.components.PokemonRow
 import it.kata.pokedex.presentation.list.components.PokemonRowPlaceholder
+import it.kata.pokedex.presentation.list.components.TypeFilterRow
 import it.kata.pokedex.presentation.theme.PokedexTheme
 import java.io.IOException
 
@@ -41,6 +43,8 @@ fun PokemonListScreen(
     pokemon: LazyPagingItems<PokemonRef>,
     query: String,
     onQueryChange: (String) -> Unit,
+    selectedTypes: Set<PokemonType>,
+    onTypeToggle: (PokemonType) -> Unit,
     rowFor: @Composable (PokemonRef) -> PokemonRowState,
     modifier: Modifier = Modifier,
 ) {
@@ -54,6 +58,8 @@ fun PokemonListScreen(
         append = pokemon.loadState.append,
         query = query,
         onQueryChange = onQueryChange,
+        selectedTypes = selectedTypes,
+        onTypeToggle = onTypeToggle,
         rowFor = rowFor,
         onRetry = pokemon::retry,
         modifier = modifier,
@@ -78,6 +84,8 @@ private fun PokemonListContent(
     append: LoadState,
     query: String,
     onQueryChange: (String) -> Unit,
+    selectedTypes: Set<PokemonType>,
+    onTypeToggle: (PokemonType) -> Unit,
     rowFor: @Composable (PokemonRef) -> PokemonRowState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -85,6 +93,7 @@ private fun PokemonListContent(
     Column(modifier = modifier.fillMaxSize()) {
         PokedexHeader()
         PokedexSearchField(query = query, onQueryChange = onQueryChange)
+        TypeFilterRow(selectedTypes = selectedTypes, onTypeToggle = onTypeToggle)
 
         Box(modifier = Modifier.fillMaxSize()) {
             when {
@@ -143,6 +152,8 @@ private fun PokemonListLoadedPreview() {
             append = LoadState.NotLoading(endOfPaginationReached = true),
             query = "",
             onQueryChange = {},
+            selectedTypes = emptySet(),
+            onTypeToggle = {},
             rowFor = { previewLoaded(it) },
             onRetry = {},
         )
@@ -160,6 +171,8 @@ private fun PokemonListRowsLoadingPreview() {
             append = LoadState.NotLoading(endOfPaginationReached = true),
             query = "",
             onQueryChange = {},
+            selectedTypes = emptySet(),
+            onTypeToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -177,6 +190,8 @@ private fun PokemonListLoadingPreview() {
             append = LoadState.NotLoading(endOfPaginationReached = false),
             query = "",
             onQueryChange = {},
+            selectedTypes = emptySet(),
+            onTypeToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -194,6 +209,8 @@ private fun PokemonListEmptyPreview() {
             append = LoadState.NotLoading(endOfPaginationReached = true),
             query = "zzz",
             onQueryChange = {},
+            selectedTypes = setOf(PokemonType.DRAGON),
+            onTypeToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -211,6 +228,8 @@ private fun PokemonListErrorPreview() {
             append = LoadState.NotLoading(endOfPaginationReached = false),
             query = "",
             onQueryChange = {},
+            selectedTypes = emptySet(),
+            onTypeToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -228,6 +247,8 @@ private fun PokemonListAppendingPreview() {
             append = LoadState.Loading,
             query = "",
             onQueryChange = {},
+            selectedTypes = emptySet(),
+            onTypeToggle = {},
             rowFor = { previewLoaded(it) },
             onRetry = {},
         )

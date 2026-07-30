@@ -182,7 +182,14 @@ indirizzo.
 
 Costo accettato: dettaglio e species diventano **sequenziali**, perché il secondo indirizzo sta
 dentro la prima risposta. Un round trip in più è il prezzo di non indovinare.
-4. **Ricerca per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`.
+4. **Filtro per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`, cioè
+   l'elenco completo di chi ha quel tipo, fra 2,7 e 4,5 KB gzip. Si scarica **una volta per tipo
+   selezionato** e si tiene in memoria, come l'indice. Il path si compone dal nome: è un punto di
+   ingresso indirizzato da un identificatore che possediamo già (gli stessi `apiName` dell'enum),
+   non un indirizzo derivato dall'id di un'altra risorsa.
+   Attenzione: l'API espone **21** tipi, non 18, e `unknown` e `shadow` stanno agli id 10001 e 10002.
+   Indirizzare i tipi per id ricadrebbe nello stesso disallineamento. I 18 dell'enum sono una scelta
+   di prodotto: `stellar`, `unknown` e `shadow` restano fuori dai chip e il mapper li scarta.
 5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto,
    quindi il filtro per substring si fa in locale sull'indice.
 
@@ -238,6 +245,10 @@ Il mockup di riferimento è pulito e iOS-like. Da replicare nello spirito e migl
 - **Filtro per tipo:** riga di chip a selezione multipla. È uno **scostamento voluto** dal mockup,
   che ha un campo unico per nome e tipo: chip separati mostrano quali tipi esistono invece di farli
   indovinare, permettono di combinare i filtri e tengono la query non ambigua per i layer sotto.
+  Più tipi selezionati stanno in **unione** (chi ha almeno uno dei tipi), non in intersezione: un
+  filtro che con Fuoco e Acqua insieme restituisce sempre zero sembra rotto, non vuoto. Nome e tipi
+  invece si combinano in **AND**. Il toggle di un chip **non è debounced**: è un'azione discreta, il
+  debounce serve solo alla digitazione.
 - **Riga della lista:** thumbnail a sinistra; a destra nome in grassetto, chip dei tipi colorati,
   descrizione su 2 righe con ellissi. Divider sottile fra le righe.
 - **Stati:** skeleton durante il caricamento, empty state per la ricerca senza risultati, error state

@@ -6,10 +6,11 @@
 
     <string name="search_placeholder">Cerca per nome</string>
     <string name="action_clear_search">Cancella la ricerca</string>
+    <string name="cd_type_filter">Filtra per tipo</string>
 
     <string name="action_retry">Riprova</string>
     <string name="list_empty_title">Nessun Pokémon trovato</string>
-    <string name="list_empty_body">Prova un altro nome, oppure svuota la ricerca per vederli tutti.</string>
+    <string name="list_empty_body">Prova un altro nome, oppure togli la ricerca e i filtri per tipo.</string>
     <string name="list_error_title">Qualcosa è andato storto</string>
     <string name="list_error_body">Controlla la connessione e riprova.</string>
     <string name="list_append_error">Non è stato possibile caricare altri risultati</string>

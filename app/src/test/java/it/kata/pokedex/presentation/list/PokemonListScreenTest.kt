@@ -93,6 +93,8 @@ class PokemonListScreenTest {
                 pokemon = items,
                 query = "",
                 onQueryChange = {},
+                selectedTypes = emptySet(),
+                onTypeToggle = {},
                 rowFor = { PokemonRowState.Loading },
             )
         }

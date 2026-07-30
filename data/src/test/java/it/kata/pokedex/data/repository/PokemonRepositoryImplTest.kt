@@ -3,8 +3,10 @@ package it.kata.pokedex.data.repository
 import it.kata.pokedex.core.AppResult
 import it.kata.pokedex.data.remote.FakePokeApi
 import it.kata.pokedex.data.remote.PokemonNameIndexDataSource
+import it.kata.pokedex.data.remote.PokemonTypeIndexDataSource
 import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.model.PokemonPage
+import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -26,6 +28,7 @@ class PokemonRepositoryImplTest {
     private fun TestScope.repository() = PokemonRepositoryImpl(
         api = api,
         nameIndex = PokemonNameIndexDataSource(api),
+        typeIndex = PokemonTypeIndexDataSource(api),
         dispatcher = StandardTestDispatcher(testScheduler),
     )
 
@@ -33,7 +36,7 @@ class PokemonRepositoryImplTest {
     fun `a page is a slice of the index`() = runTest {
         api.allNames = listOf("bulbasaur", "charmander", "charizard")
 
-        val page = repository().getPage(query = "", offset = 1, limit = 20).valueOrFail()
+        val page = repository().getPage(query = PokemonQuery(), offset = 1, limit = 20).valueOrFail()
 
         assertEquals(listOf("charmander", "charizard"), page.items.map { it.name })
         assertEquals(false, page.hasMore)
@@ -47,7 +50,7 @@ class PokemonRepositoryImplTest {
     fun `a page costs no detail and no species requests`() = runTest {
         api.allNames = List(20) { "pokemon-$it" }
 
-        repository().getPage(query = "", offset = 0, limit = 20).valueOrFail()
+        repository().getPage(query = PokemonQuery(), offset = 0, limit = 20).valueOrFail()
 
         assertEquals(0, api.detailCalls)
         assertEquals(0, api.speciesCalls)
@@ -58,9 +61,9 @@ class PokemonRepositoryImplTest {
         api.allNames = List(60) { "pokemon-$it" }
         val repository = repository()
 
-        repository.getPage("", offset = 0, limit = 20).valueOrFail()
-        repository.getPage("", offset = 20, limit = 20).valueOrFail()
-        repository.getPage("char", offset = 0, limit = 20).valueOrFail()
+        repository.getPage(PokemonQuery(), offset = 0, limit = 20).valueOrFail()
+        repository.getPage(PokemonQuery(), offset = 20, limit = 20).valueOrFail()
+        repository.getPage(PokemonQuery(name = "char"), offset = 0, limit = 20).valueOrFail()
 
         assertEquals(1, api.indexCalls)
     }
@@ -70,8 +73,8 @@ class PokemonRepositoryImplTest {
         api.allNames = List(30) { "pokemon-$it" }
         val repository = repository()
 
-        val firstPage = repository.getPage("", offset = 0, limit = 20).valueOrFail()
-        val secondPage = repository.getPage("", offset = 20, limit = 20).valueOrFail()
+        val firstPage = repository.getPage(PokemonQuery(), offset = 0, limit = 20).valueOrFail()
+        val secondPage = repository.getPage(PokemonQuery(), offset = 20, limit = 20).valueOrFail()
 
         assertEquals("pokemon-0", firstPage.items.first().name)
         assertEquals(true, firstPage.hasMore)
@@ -83,7 +86,7 @@ class PokemonRepositoryImplTest {
     fun `a query narrows the page down to the matching names`() = runTest {
         api.allNames = listOf("bulbasaur", "charmander", "charmeleon", "charizard")
 
-        val page = repository().getPage("char", offset = 0, limit = 20).valueOrFail()
+        val page = repository().getPage(PokemonQuery(name = "char"), offset = 0, limit = 20).valueOrFail()
 
         assertEquals(listOf("charmander", "charmeleon", "charizard"), page.items.map { it.name })
     }
@@ -92,7 +95,7 @@ class PokemonRepositoryImplTest {
     fun `a query that matches nothing gives an empty page, not a failure`() = runTest {
         api.allNames = listOf("bulbasaur", "charizard")
 
-        val page = repository().getPage("zzz", offset = 0, limit = 20).valueOrFail()
+        val page = repository().getPage(PokemonQuery(name = "zzz"), offset = 0, limit = 20).valueOrFail()
 
         assertEquals(emptyList(), page.items)
         assertEquals(false, page.hasMore)
@@ -102,7 +105,7 @@ class PokemonRepositoryImplTest {
     fun `turns a failing index call into a failure instead of throwing`() = runTest {
         api.failIndexCall = true
 
-        val result = repository().getPage("", offset = 0, limit = 20)
+        val result = repository().getPage(PokemonQuery(), offset = 0, limit = 20)
 
         assertIs<AppResult.Failure>(result)
         assertIs<IOException>(result.cause)
@@ -168,9 +171,80 @@ class PokemonRepositoryImplTest {
         assertIs<AppResult.Failure>(result)
     }
 
+    @Test
+    fun `a type narrows the page down to the members of that type`() = runTest {
+        api.allNames = listOf("bulbasaur", "charmander", "charizard", "squirtle")
+        api.typeMembers = mapOf("fire" to setOf("charmander", "charizard"))
+
+        val page = repository()
+            .getPage(PokemonQuery(types = setOf(PokemonType.FIRE)), offset = 0, limit = 20)
+            .valueOrFail()
+
+        assertEquals(listOf("charmander", "charizard"), page.items.map { it.name })
+    }
+
+    /** Types are a union, so two of them widen the list rather than narrowing it to nothing. */
+    @Test
+    fun `several types show the members of any of them`() = runTest {
+        api.allNames = listOf("bulbasaur", "charmander", "squirtle")
+        api.typeMembers = mapOf("fire" to setOf("charmander"), "water" to setOf("squirtle"))
+
+        val page = repository()
+            .getPage(
+                PokemonQuery(types = setOf(PokemonType.FIRE, PokemonType.WATER)),
+                offset = 0,
+                limit = 20,
+            )
+            .valueOrFail()
+
+        assertEquals(listOf("charmander", "squirtle"), page.items.map { it.name })
+    }
+
+    /** The name and the types combine the other way round: both have to match. */
+    @Test
+    fun `a name and a type narrow each other`() = runTest {
+        api.allNames = listOf("charmander", "charizard", "squirtle")
+        api.typeMembers = mapOf("fire" to setOf("charmander", "charizard"))
+
+        val page = repository()
+            .getPage(
+                PokemonQuery(name = "charizard", types = setOf(PokemonType.FIRE)),
+                offset = 0,
+                limit = 20,
+            )
+            .valueOrFail()
+
+        assertEquals(listOf("charizard"), page.items.map { it.name })
+    }
+
+    @Test
+    fun `a filter with no members gives an empty page, not a failure`() = runTest {
+        api.allNames = listOf("bulbasaur", "charmander")
+        api.typeMembers = mapOf("dragon" to emptySet())
+
+        val page = repository()
+            .getPage(PokemonQuery(types = setOf(PokemonType.DRAGON)), offset = 0, limit = 20)
+            .valueOrFail()
+
+        assertEquals(emptyList(), page.items)
+    }
+
+    /** Filtering happens on the pointers, so it stays as free as turning a page. */
+    @Test
+    fun `filtering by type costs no detail requests`() = runTest {
+        api.allNames = listOf("charmander", "charizard")
+        api.typeMembers = mapOf("fire" to setOf("charmander", "charizard"))
+
+        repository()
+            .getPage(PokemonQuery(types = setOf(PokemonType.FIRE)), offset = 0, limit = 20)
+            .valueOrFail()
+
+        assertEquals(0, api.detailCalls)
+    }
+
     /** Refs always come from the index, so the test takes them from there too. */
     private suspend fun TestScope.firstRef(): PokemonRef =
-        repository().getPage("", offset = 0, limit = 20).valueOrFail().items.first()
+        repository().getPage(PokemonQuery(), offset = 0, limit = 20).valueOrFail().items.first()
 
     private fun AppResult<PokemonPage>.valueOrFail(): PokemonPage {
         assertIs<AppResult.Success<PokemonPage>>(this)
