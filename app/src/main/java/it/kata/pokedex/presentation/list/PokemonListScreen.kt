@@ -11,9 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
-import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.presentation.list.components.ListAppendError
@@ -23,54 +21,76 @@ import it.kata.pokedex.presentation.list.components.PokedexHeader
 import it.kata.pokedex.presentation.list.components.PokemonRow
 import it.kata.pokedex.presentation.list.components.PokemonRowPlaceholder
 import it.kata.pokedex.presentation.theme.PokedexTheme
-import kotlinx.coroutines.flow.flowOf
+import java.io.IOException
 
 /** How many skeleton rows to draw while the first page is on its way. */
 private const val PLACEHOLDER_ROWS = 8
 
 /**
- * The list screen, stateless: it renders what it is given.
+ * The list screen. Nothing more than an adapter: it unpacks [LazyPagingItems] into plain values and
+ * hands them to the layout below.
  *
- * The two failures are told apart on purpose. Losing the first page leaves an empty screen, so it
- * gets the full error state; losing a later page leaves a usable list, so the retry goes quietly at
- * the bottom.
+ * The split is what makes the layout previewable. Feeding a preview a `LazyPagingItems` is a race
+ * against the coroutine that collects the flow, so it renders the skeleton about half the time;
+ * plain values render the same way every time.
  */
 @Composable
 fun PokemonListScreen(
     pokemon: LazyPagingItems<Pokemon>,
     modifier: Modifier = Modifier,
 ) {
+    PokemonListContent(
+        refresh = pokemon.loadState.refresh,
+        append = pokemon.loadState.append,
+        itemCount = pokemon.itemCount,
+        keyOf = pokemon.itemKey { it.id },
+        itemAt = { pokemon[it] },
+        onRetry = pokemon::retry,
+        modifier = modifier,
+    )
+}
+
+/**
+ * The layout, with no idea that Paging exists.
+ *
+ * The two failures are told apart on purpose. Losing the first page leaves an empty screen, so it
+ * gets the full error state; losing a later page leaves a usable list, so the retry goes quietly at
+ * the bottom.
+ */
+@Composable
+private fun PokemonListContent(
+    refresh: LoadState,
+    append: LoadState,
+    itemCount: Int,
+    keyOf: (Int) -> Any,
+    itemAt: (Int) -> Pokemon?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxSize()) {
         PokedexHeader()
 
         Box(modifier = Modifier.fillMaxSize()) {
-            when (pokemon.loadState.refresh) {
+            when (refresh) {
                 is LoadState.Loading -> LoadingRows()
-                is LoadState.Error -> ListErrorState(onRetry = pokemon::retry)
-                is LoadState.NotLoading -> LoadedRows(pokemon)
-            }
-        }
-    }
-}
 
-@Composable
-private fun LoadedRows(pokemon: LazyPagingItems<Pokemon>) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(
-            count = pokemon.itemCount,
-            key = pokemon.itemKey { it.id },
-        ) { index ->
-            val item = pokemon[index]
-            if (item != null) {
-                PokemonRow(pokemon = item)
-                RowDivider()
-            }
-        }
+                is LoadState.Error -> ListErrorState(onRetry = onRetry)
 
-        when (pokemon.loadState.append) {
-            is LoadState.Loading -> item { ListAppendLoading() }
-            is LoadState.Error -> item { ListAppendError(onRetry = pokemon::retry) }
-            is LoadState.NotLoading -> Unit
+                is LoadState.NotLoading -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(count = itemCount, key = keyOf) { index ->
+                        itemAt(index)?.let { pokemon ->
+                            PokemonRow(pokemon = pokemon)
+                            RowDivider()
+                        }
+                    }
+
+                    when (append) {
+                        is LoadState.Loading -> item { ListAppendLoading() }
+                        is LoadState.Error -> item { ListAppendError(onRetry = onRetry) }
+                        is LoadState.NotLoading -> Unit
+                    }
+                }
+            }
         }
     }
 }
@@ -95,16 +115,60 @@ private fun RowDivider() {
 
 @Preview(showBackground = true, heightDp = 700)
 @Composable
-private fun PokemonListScreenPreview() {
+private fun PokemonListLoadedPreview() {
     PokedexTheme {
-        PokemonListScreen(
-            pokemon = flowOf(PagingData.from(previewPokemon)).collectAsLazyPagingItems(),
+        PokemonListContent(
+            refresh = LoadState.NotLoading(endOfPaginationReached = false),
+            append = LoadState.NotLoading(endOfPaginationReached = true),
+            itemCount = previewPokemon.size,
+            keyOf = { previewPokemon[it].id },
+            itemAt = { previewPokemon[it] },
+            onRetry = {},
         )
     }
 }
 
 @Preview(showBackground = true, heightDp = 700)
 @Composable
-private fun PokemonListScreenLoadingPreview() {
-    PokedexTheme { LoadingRows() }
+private fun PokemonListLoadingPreview() {
+    PokedexTheme {
+        PokemonListContent(
+            refresh = LoadState.Loading,
+            append = LoadState.NotLoading(endOfPaginationReached = false),
+            itemCount = 0,
+            keyOf = { it },
+            itemAt = { null },
+            onRetry = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun PokemonListErrorPreview() {
+    PokedexTheme {
+        PokemonListContent(
+            refresh = LoadState.Error(IOException("preview")),
+            append = LoadState.NotLoading(endOfPaginationReached = false),
+            itemCount = 0,
+            keyOf = { it },
+            itemAt = { null },
+            onRetry = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun PokemonListAppendingPreview() {
+    PokedexTheme {
+        PokemonListContent(
+            refresh = LoadState.NotLoading(endOfPaginationReached = false),
+            append = LoadState.Loading,
+            itemCount = previewPokemon.size,
+            keyOf = { previewPokemon[it].id },
+            itemAt = { previewPokemon[it] },
+            onRetry = {},
+        )
+    }
 }
