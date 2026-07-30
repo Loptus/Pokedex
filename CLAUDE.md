@@ -69,15 +69,17 @@ Queste regole valgono sempre e hanno la precedenza sulla voglia di andare veloce
 - **Serializzazione:** **Gson** con `converter-gson`. Conseguenza importante: Gson non garantisce la
   non-nullità a runtime, quindi i DTO vogliono **default espliciti su ogni campo** e i test dei
   mapper fanno da rete di sicurezza al posto del controllo del compilatore.
-- **Paginazione:** **Paging 3** (`paging-runtime`, `paging-compose`, `paging-testing`).
+- **Paginazione:** **Paging 3** (`paging-common` nei moduli puri, `paging-compose` in `:app`,
+  `paging-testing` nei test).
 - **Persistenza preferiti:** **Room** (+ Flow reattivo).
 - **Immagini:** **Coil 3** (`coil-compose` + `coil-network-okhttp`). Coil si costruisce un
   `OkHttpClient` suo e tiene la propria cache immagini: **non** condivide il client di
   `NetworkModule`. Condividerlo vorrebbe dire configurare un `ImageLoader` a mano, e il guadagno
   sarebbe il connection pool, non la cache, che Coil ha comunque separata.
 - **Navigazione:** Navigation Compose con bottom navigation a due tab.
-- **Test:** JUnit4, MockK, Turbine, `kotlinx-coroutines-test`, MockWebServer, Robolectric,
-  `paging-testing`.
+- **Test:** JUnit4, `kotlin-test`, Turbine, `kotlinx-coroutines-test`, MockWebServer, Robolectric,
+  `paging-testing`. **Niente libreria di mocking**: i doppi di test sono fake scritti a mano, che
+  rendono esplicito il comportamento simulato invece di nasconderlo dietro uno stub.
 - **Build:** Gradle Kotlin DSL + version catalog (`gradle/libs.versions.toml`).
 
 Regole sulle dipendenze:
@@ -410,13 +412,14 @@ Vale per README, commit e commenti in italiano:
   **107 al momento dell'ultimo aggiornamento**, tutti verdi.
 - **README.md** in italiano, come da sezione 10: build, architettura, scelte con i loro costi, cosa
   è tagliato e cosa si farebbe con più tempo.
+- **Version catalog senza voci morte**: ogni libreria, bundle, versione e plugin dichiarato è usato.
+  Tolti `mockk`, `mockk-android`, `androidx-arch-core-testing`, `extJunit`, `androidx-espresso-core`
+  e il bundle `android-testing`, insieme al `testInstrumentationRunner`: senza sorgenti in
+  `androidTest` puntava a una dipendenza che non c'è più.
 
 ### Cosa manca, in ordine
 
-1. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`,
-   `androidx-arch-core-testing` e il bundle `android-testing` (nessun test strumentato).
-   `app-cash-turbine` invece adesso serve, la usano i test dei preferiti.
-2. **Icona adattiva**, opzionale.
+1. **Icona adattiva**, opzionale.
 
 ### Decisioni già prese, da non rimettere in discussione
 
