@@ -377,19 +377,23 @@ Vale per README, commit e commenti in italiano:
 - Ricerca per nome con debounce, filtro per tipo a chip in unione, i due combinati in AND.
 - Stati espliciti: skeleton in refresh, spinner in append, empty state, error state con retry a
   schermo intero e in coda alla lista.
-- Test su tutti i layer, compresi test Compose su JVM con Robolectric.
+- **Preferiti salvati con Room**: tabella `favorite_pokemon` a tre colonne (`id`, `name`,
+  `detailUrl`), toggle in transazione, `Flow<Set<Int>>` osservato dal ViewModel, cuore su ogni riga
+  della lista. Sopravvive al riavvio.
+- Test su tutti i layer, compresi test Compose su JVM con Robolectric e test Room in memoria.
+  **94 al momento dell'ultimo aggiornamento**, tutti verdi.
 
 ### Cosa manca, in ordine
 
-1. **Preferiti con Room**: entity, DAO con Flow, repository, use case (observe, toggle, remove),
-   cuore sulla riga della lista. Room è già nel version catalog di `:data`, oggi inutilizzato.
-2. **Pagina preferiti e bottom navigation** a due tab. `navigation-compose` è già in `:app`,
-   oggi inutilizzato.
-3. **README.md** in italiano, come da sezione 10.
-4. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`, `app-cash-turbine`,
-   `androidx-arch-core-testing` e il bundle `android-testing` (nessun test strumentato). Room e
-   navigation-compose invece servono ai punti 1 e 2.
-5. **Icona adattiva**, opzionale.
+1. **Pagina preferiti e bottom navigation** a due tab. `navigation-compose` è già in `:app`, oggi
+   inutilizzato. La pagina riusa `PokemonRow` senza modifiche: legge i puntatori dal database e
+   carica il contenuto per riga visibile, esattamente come la lista. Servono la query `ORDER BY id`,
+   uno `ObserveFavoritesUseCase` e un `RemoveFavoriteUseCase`.
+2. **README.md** in italiano, come da sezione 10.
+3. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`,
+   `androidx-arch-core-testing` e il bundle `android-testing` (nessun test strumentato).
+   `app-cash-turbine` invece adesso serve, la usano i test dei preferiti.
+4. **Icona adattiva**, opzionale.
 
 ### Decisioni già prese, da non rimettere in discussione
 
@@ -400,8 +404,22 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
 - Url seguiti, mai costruiti da id di altre risorse (sezione 5).
 - Tipi in unione fra loro, in AND con il nome; toggle non debounced (sezioni 5 e 6).
 - `Pokemon` contiene la descrizione, `PokemonRef` no: sono i due livelli dell'API.
-- Preferiti e navigazione **non esistono ancora nel codice**, nemmeno come parametro o stringa:
-  è la regola 2 della sezione 2, e va rispettata anche adesso che sono i prossimi step.
+- **Un preferito è il puntatore, non lo snapshot.** Si salvano `id`, `name` e `detailUrl`, non
+  immagine, tipi e descrizione. La pagina preferiti riusa `PokemonRow` senza rifattorizzarla e la
+  copia non invecchia mai; il prezzo è che senza rete mostra nomi e placeholder.
+- **Ordinamento dei preferiti per id**, cioè per numero del Pokédex. Niente colonna `addedAt`: la
+  lista non si rimescola e lo schema resta di tre colonne.
+- **Il cuore è visibile da subito**, anche mentre la riga carica: quello che si salva è il puntatore,
+  che c'è dal primo frame.
+- **Chi è preferito lo decide il ViewModel**, non il composable. Il flusso paginato emette
+  `PokemonListItem(ref, isFavorite)` e la UI stampa un flag già deciso, senza mai vedere l'insieme
+  degli id. Il `combine` sta **dopo** `cachedIn`: in cache ci vanno le pagine, non i flag.
+- **Il toggle non restituisce `AppResult`.** La verità del cuore arriva dal Flow del database, quindi
+  una scrittura fallita si vede da sola. Il costo, accettato, è che un errore di disco resta muto.
+- **Niente dispatcher iniettato nel repository dei preferiti**: Room esce dal main thread da sé, a
+  differenza di `PokemonRepositoryImpl` che invece lo inietta.
+- La navigazione **non esiste ancora nel codice**, nemmeno come parametro o stringa: è la regola 2
+  della sezione 2, e va rispettata anche adesso che è il prossimo step.
 
 ### Punti aperti, dichiarati e non dimenticati
 
@@ -413,6 +431,16 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
 - **Nessun test strumentato.** La copertura è su domain, data, ViewModel e Compose via Robolectric.
   Da dire nel README invece di lasciarlo intuire.
 - **Niente schermata di dettaglio**, per scelta: va scritto nel README fra le cose tagliate.
+- **I preferiti offline mostrano solo i nomi.** Cachato è l'HTTP di OkHttp, che evita la rete ma non
+  la chiamata: la riga passa comunque da `Loading`, Retrofit e Gson. La cache in memoria che rende un
+  contenuto istantaneo è la mappa `rows` di `PokemonListViewModel`, che vive in quel ViewModel e non
+  attraversa le schermate. Condividerla vorrebbe dire spostarla nel repository. Scelta rimandata,
+  non dimenticata: da dire nel README fra i trade-off.
+- **Il contenuto della riga e il flag preferito restano due assi separati**, `PokemonRowState` e
+  `PokemonListItem`. Fonderli in un modello unico per riga costerebbe un flow derivato e una
+  coroutine per riga visibile nel ViewModel. Valutato e lasciato com'è.
+- **`DisplayText` resta nei composable**: capitalizzare un nome è formattazione, non una decisione.
+  Deciso esplicitamente, non per dimenticanza.
 
 ### Trappole già pagate, da non ripetere
 
@@ -421,4 +449,14 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
   ricerca accorcia la lista. La schermata prende **una sola lista immutabile**, mai un conteggio più
   un accessor separato. C'è un test di regressione in `PokemonListScreenTest`.
 - **Robolectric non ha l'immagine per l'SDK 37**: i test Compose vogliono `@Config(sdk = [36])`.
+  Vale anche per i test Room in `:data`.
 - `createComposeRule` va preso da `androidx.compose.ui.test.junit4.v2`, quello vecchio è deprecato.
+- **`./gradlew testDebugUnitTest` può tornare verde senza eseguire niente**, se le task sono
+  `UP-TO-DATE` dalla volta prima. Per un esito vero servono i `--rerun`:
+  `./gradlew :app:testDebugUnitTest --rerun :data:testDebugUnitTest --rerun :domain:test --rerun`.
+- **Un DAO con un metodo `@Transaction` deve essere una classe astratta**, non un'interfaccia: Room
+  vuole un corpo, e un corpo vuole una classe.
+- **Room non ha bisogno di `room-ktx`** per i `Flow`: basta `room-runtime`, verificato compilando.
+- **I test Room vogliono gli executor di Room sostituiti** con il test dispatcher
+  (`setQueryExecutor` e `setTransactionExecutor`), altrimenti la scrittura e l'emissione che ne segue
+  finiscono su un thread fuori dalla timeline del test.
