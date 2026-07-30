@@ -7,7 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import it.kata.pokedex.BuildConfig
+import it.kata.pokedex.data.BuildConfig
 import it.kata.pokedex.data.remote.PokeApi
 import okhttp3.Cache
 import okhttp3.OkHttpClient

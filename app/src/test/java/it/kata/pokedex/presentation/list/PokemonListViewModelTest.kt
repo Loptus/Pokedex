@@ -1,11 +1,9 @@
 package it.kata.pokedex.presentation.list
 
 import androidx.paging.PagingSource
+import androidx.paging.PagingState
 import androidx.paging.testing.asSnapshot
-import it.kata.pokedex.core.AppResult
-import it.kata.pokedex.data.remote.PokemonPagingSource
 import it.kata.pokedex.domain.model.Pokemon
-import it.kata.pokedex.domain.model.PokemonPage
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.utils.MainDispatcherRule
@@ -24,12 +22,12 @@ class PokemonListViewModelTest {
     private fun viewModel() = PokemonListViewModel(GetPokemonPagingUseCase(repository))
 
     /**
-     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which here would
-     * ask the API for sixty entries at once and, at two extra calls each, turn the first screen
-     * into well over a hundred requests.
+     * Guards `initialLoadSize`. Paging defaults it to three times the page size, which would ask
+     * the API for sixty entries at once and, at two extra calls each, turn the first screen into
+     * well over a hundred requests.
      *
-     * Forty rather than twenty because Paging prefetches the following page as soon as the first
-     * one is consumed. The point is that it is a couple of pages, not the whole list.
+     * Two windows rather than one because Paging prefetches the following page as soon as the first
+     * is consumed. The point is that it asks for pages, not for the whole list.
      */
     @Test
     fun `asks for one page at a time`() = runTest {
@@ -47,8 +45,9 @@ class PokemonListViewModelTest {
     }
 
     /**
-     * Wraps the real [PokemonPagingSource] so the test covers the whole pipeline, and records the
-     * windows it was asked for, which is what tells a page at a time from one big load.
+     * A paging source of its own rather than the real one from the data module: this test is about
+     * the window the ViewModel and the use case ask for, and it has no business reaching across
+     * into how the data layer fetches it.
      */
     private class CountingRepository(private val total: Int) : PokemonRepository {
 
@@ -56,22 +55,32 @@ class PokemonListViewModelTest {
         val requestedOffsets = mutableListOf<Int>()
 
         override fun pokemonPagingSource(): PagingSource<Int, Pokemon> =
-            PokemonPagingSource(::loadPage)
+            object : PagingSource<Int, Pokemon>() {
 
-        private suspend fun loadPage(offset: Int, limit: Int): AppResult<PokemonPage> {
-            requestedLimits += limit
-            requestedOffsets += offset
+                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
+                    val offset = params.key ?: 0
+                    requestedLimits += params.loadSize
+                    requestedOffsets += offset
 
-            val items = (offset until minOf(offset + limit, total)).map { index ->
-                Pokemon(
-                    id = index,
-                    name = "pokemon-$index",
-                    imageUrl = null,
-                    types = emptyList(),
-                    description = "",
-                )
+                    val items = (offset until minOf(offset + params.loadSize, total)).map { index ->
+                        Pokemon(
+                            id = index,
+                            name = "pokemon-$index",
+                            imageUrl = null,
+                            types = emptyList(),
+                            description = "",
+                        )
+                    }
+                    val nextOffset = offset + params.loadSize
+
+                    return LoadResult.Page(
+                        data = items,
+                        prevKey = null,
+                        nextKey = if (nextOffset < total) nextOffset else null,
+                    )
+                }
+
+                override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
             }
-            return AppResult.Success(PokemonPage(items = items, hasMore = offset + limit < total))
-        }
     }
 }

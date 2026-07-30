@@ -34,7 +34,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -48,6 +47,10 @@ kotlin {
 }
 
 dependencies {
+    implementation(projects.domain)
+    // Only for the Hilt bindings: nothing in this module imports anything from data.
+    runtimeOnly(projects.data)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -59,17 +62,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
 
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging.interceptor)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.gson)
-
-    implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
-
-    implementation(libs.androidx.room.runtime)
-    ksp(libs.androidx.room.compiler)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
@@ -79,6 +72,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     testImplementation(libs.bundles.unit.testing)
+    testImplementation(libs.androidx.paging.testing)
     androidTestImplementation(libs.bundles.android.testing)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

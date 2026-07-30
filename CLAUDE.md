@@ -87,22 +87,32 @@ Regole sulle dipendenze:
 
 ## 4. Architettura
 
-Clean Architecture a tre layer, MVVM nel presentation, Unidirectional Data Flow.
+Clean Architecture a tre layer, MVVM nel presentation, Unidirectional Data Flow. I tre layer sono
+**tre moduli Gradle**, non tre package: così il confine lo applica il compilatore invece della buona
+volontà di chi scrive.
 
 ```
-it.kata.pokedex
-├─ di/            moduli Hilt (dispatcher qualificati, network, database, repository)
-├─ core/          util, wrapper di esito, base comune
-├─ data/
-│  ├─ remote/     PokeApi (Retrofit), DTO, mapper DTO -> dominio
-│  ├─ local/      Room: entity, DAO, database
-│  └─ repository/ implementazioni dei repository
-├─ domain/
-│  ├─ model/      modelli puliti, nessuna annotazione di framework
-│  ├─ repository/ interfacce dei repository
-│  └─ usecase/    uno per azione
-└─ presentation/  list/, favourites/, navigation/, theme/, common/
+:domain   kotlin-jvm                domain/model, domain/repository (interfacce), domain/usecase
+:data     com.android.library       data/remote (PokeApi, DTO, mapper), data/repository, core/, di/
+:app      com.android.application   presentation/, MainActivity, theme, PokedexApplication
 ```
+
+Regole dei moduli:
+
+- **`:domain` è Kotlin JVM puro.** Non ha l'SDK Android sul classpath, quindi un `Context`, un
+  `Color` o un `@Composable` nel dominio sono un errore di compilazione, non una svista da cogliere
+  in review. Dipende solo da `kotlin-stdlib`, `javax.inject` e `paging-common`, che è la metà pura
+  di Paging.
+- **`:data` dipende da `:domain` con `api`**, perché ne riespone modelli e interfacce a chi lo usa.
+- **`:app` dipende da `:domain` con `implementation` e da `:data` con `runtimeOnly`**: la app non
+  importa una singola classe dal layer dati, le serve solo a runtime perché Hilt trovi i binding.
+  Se un giorno `runtimeOnly` non bastasse più, è il segnale che qualcosa sta sconfinando.
+- **Ogni modulo dichiara le proprie dipendenze:** Compose e Coil solo in `:app`, Retrofit, OkHttp,
+  Gson e Room solo in `:data`.
+- **Anche i test rispettano i confini.** Un test in `:app` che ha bisogno di una classe di `:data`
+  non è un problema di visibilità, è il segnale che sta testando il layer sbagliato.
+- Quando un util o un wrapper di esito servirà sia a `:domain` sia a `:data`, si estrae un `:core`.
+  Finché serve a uno solo, sta lì: oggi `AppResult` e i qualificatori dei dispatcher sono in `:data`.
 
 Principi:
 
@@ -264,8 +274,11 @@ Non esiste un JDK sul PATH: Gradle si lancia con la JBR di Android Studio.
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew assembleDebug testDebugUnitTest
+./gradlew assembleDebug testDebugUnitTest :domain:test
 ```
+
+`:domain` è un modulo JVM, quindi i suoi test stanno sotto `test` e non sotto `testDebugUnitTest`:
+senza `:domain:test` esplicito quei test non vengono eseguiti e la build resta verde per finta.
 
 - Dopo ogni step: build e test verdi prima di dichiarare finito.
 - I warning del compilatore si trattano come errori da sistemare, non da ignorare (per esempio una
