@@ -3,6 +3,10 @@
 Istruzioni operative per Claude Code. Questo file è la fonte di verità su obiettivo, stack,
 architettura, regole di lavoro e convenzioni. Leggerlo prima di scrivere codice.
 
+**Se stai iniziando una sessione nuova:** la sezione 12 dice a che punto è il progetto, cosa manca,
+quali decisioni sono già state prese e quali trappole sono già state pagate. Leggi quella e
+`git log --oneline` prima di toccare qualcosa.
+
 ## 1. Cos'è il progetto
 
 App Android nativa che mostra una lista di Pokémon presi dalla PokeAPI pubblica
@@ -357,3 +361,64 @@ Vale per README, commit e commenti in italiano:
   intervalli di date ("2008–2012") vanno bene.
 - **Accenti italiani sempre corretti** (è, à, ì, ò, ù, é).
 - Tono conciso, concreto, professionale. Niente enfasi gonfiata.
+
+## 12. Stato del progetto e passaggio di consegne
+
+> Questa sezione invecchia: va aggiornata alla fine di ogni sessione che cambia lo stato.
+> Tutto il resto del file sono regole, e quelle non scadono.
+
+### Cosa c'è, feature per feature
+
+- Tre moduli Gradle (`:app`, `:data`, `:domain`) con i confini applicati dal compilatore.
+- Lista dei Pokémon dalla PokeAPI, con thumbnail, nome, chip dei tipi colorati e descrizione.
+- Paginazione a 20 con Paging 3 e infinite scroll. Una pagina **non costa richieste**: emette solo
+  `PokemonRef`, presi dall'indice in memoria.
+- Contenuto della riga caricato **per riga visibile**, cancellato quando la riga esce dallo schermo.
+- Ricerca per nome con debounce, filtro per tipo a chip in unione, i due combinati in AND.
+- Stati espliciti: skeleton in refresh, spinner in append, empty state, error state con retry a
+  schermo intero e in coda alla lista.
+- Test su tutti i layer, compresi test Compose su JVM con Robolectric.
+
+### Cosa manca, in ordine
+
+1. **Preferiti con Room**: entity, DAO con Flow, repository, use case (observe, toggle, remove),
+   cuore sulla riga della lista. Room è già nel version catalog di `:data`, oggi inutilizzato.
+2. **Pagina preferiti e bottom navigation** a due tab. `navigation-compose` è già in `:app`,
+   oggi inutilizzato.
+3. **README.md** in italiano, come da sezione 10.
+4. **Pulizia del version catalog**: oggi sono dichiarate e mai importate `mockk`, `app-cash-turbine`,
+   `androidx-arch-core-testing` e il bundle `android-testing` (nessun test strumentato). Room e
+   navigation-compose invece servono ai punti 1 e 2.
+5. **Icona adattiva**, opzionale.
+
+### Decisioni già prese, da non rimettere in discussione
+
+Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blinda.
+
+- Indice completo scaricato una volta, paginazione in memoria (sezione 5).
+- Contenuto della riga caricato per riga, con cancellazione da `LaunchedEffect` (sezione 5).
+- Url seguiti, mai costruiti da id di altre risorse (sezione 5).
+- Tipi in unione fra loro, in AND con il nome; toggle non debounced (sezioni 5 e 6).
+- `Pokemon` contiene la descrizione, `PokemonRef` no: sono i due livelli dell'API.
+- Preferiti e navigazione **non esistono ancora nel codice**, nemmeno come parametro o stringa:
+  è la regola 2 della sezione 2, e va rispettata anche adesso che sono i prossimi step.
+
+### Punti aperti, dichiarati e non dimenticati
+
+- **Posizione della lista al cambio di query.** `LazyColumn` conserva la posizione per chiave, quindi
+  svuotando la ricerca si resta in mezzo alla lista invece di tornare in cima. È documentato in un
+  commento di `PokemonListScreenTest`. Serve uno `LazyListState` sollevato più un reset: è una
+  decisione di UX, va chiesta prima di farla.
+- **La query non sopravvive alla morte del processo**: `SavedStateHandle` la risolverebbe.
+- **Nessun test strumentato.** La copertura è su domain, data, ViewModel e Compose via Robolectric.
+  Da dire nel README invece di lasciarlo intuire.
+- **Niente schermata di dettaglio**, per scelta: va scritto nel README fra le cose tagliate.
+
+### Trappole già pagate, da non ripetere
+
+- **Id contro url** (sezione 5): costava l'intera coda della lista, dalle forme alternative in poi.
+- **`itemCount` e `itemKey` letti da snapshot diversi**: crash `IndexOutOfBoundsException` appena la
+  ricerca accorcia la lista. La schermata prende **una sola lista immutabile**, mai un conteggio più
+  un accessor separato. C'è un test di regressione in `PokemonListScreenTest`.
+- **Robolectric non ha l'immagine per l'SDK 37**: i test Compose vogliono `@Config(sdk = [36])`.
+- `createComposeRule` va preso da `androidx.compose.ui.test.junit4.v2`, quello vecchio è deprecato.
