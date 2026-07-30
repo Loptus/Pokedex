@@ -29,5 +29,5 @@ class DisplayTextTest {
         assertEquals("", refNamed("").displayName)
     }
 
-    private fun refNamed(name: String) = PokemonRef(id = 1, name = name)
+    private fun refNamed(name: String) = PokemonRef(id = 1, name = name, detailUrl = "url/1")
 }

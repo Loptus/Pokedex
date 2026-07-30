@@ -160,12 +160,28 @@ La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Pun
 1. **Indice dei nomi:** `GET /api/v2/pokemon?limit=100000` restituisce
    `{ count, next, previous, results: [{ name, url }] }`. **Solo nome e url**, niente sprite, tipi o
    descrizione.
-2. **Dettaglio:** `GET /api/v2/pokemon/{id|name}` per lo sprite
-   (`sprites.other."official-artwork".front_default`, con fallback su `sprites.front_default`) e per
-   i tipi (`types[].type.name`). Payload grande: deserializzare **solo i campi che servono**.
-3. **Descrizione (flavor text):** sta in `GET /api/v2/pokemon-species/{id}`, campo
+2. **Dettaglio:** si raggiunge seguendo l'`url` dell'indice. Da lì lo sprite
+   (`sprites.other."official-artwork".front_default`, con fallback su `sprites.front_default`), i
+   tipi (`types[].type.name`) e l'oggetto `species`. Payload grande: deserializzare **solo i campi
+   che servono**.
+3. **Descrizione (flavor text):** si raggiunge seguendo `species.url` **del dettaglio**, campo
    `flavor_text_entries[]`. Filtrare `language.name == "en"`, prendere la prima e **ripulirla** dai
    caratteri di controllo `\n`, `\f` e dai doppi spazi, che l'API contiene letteralmente.
+
+### Gli url si seguono, non si costruiscono
+
+Regola non negoziabile, imparata rompendo l'app. La PokeAPI è una rete di link e **i suoi id non
+sono allineati**: dall'id 10001 in poi le voci sono forme alternative, e la loro species sta sotto un
+id completamente diverso e più basso (`/pokemon/10001/` è deoxys-attack, la sua species è
+`/pokemon-species/386/`, mentre `/pokemon-species/10001/` è 404).
+
+Costruire un indirizzo da un id funziona per le prime 1025 voci e poi fallisce in silenzio su tutta
+la coda della lista. Quindi: l'url del dettaglio si prende dall'indice, quello della species dal
+dettaglio, e in Retrofit si usa `@Url`. L'id serve solo come chiave di lista, mai per comporre un
+indirizzo.
+
+Costo accettato: dettaglio e species diventano **sequenziali**, perché il secondo indirizzo sta
+dentro la prima risposta. Un round trip in più è il prezzo di non indovinare.
 4. **Ricerca per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`.
 5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto,
    quindi il filtro per substring si fa in locale sull'indice.
@@ -196,8 +212,6 @@ righe di cui l'utente ne vede quattro o cinque.
 
 - **Niente caricamento per pagina.** L'unità di caricamento è la riga visibile: `PokemonRef` per
   paginare, `Pokemon` per la riga caricata.
-- **Le due richieste di una riga vanno in parallelo**, perché l'id è già noto dall'indice: un round
-  trip invece di due.
 - **La cancellazione arriva da `LaunchedEffect`.** Il caricamento della riga gira nello scope della
   composizione, quindi quando la riga esce dallo schermo Compose lo cancella e Retrofit cancella le
   richieste. Scorrere veloce non paga le righe superate.

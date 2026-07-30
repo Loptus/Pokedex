@@ -13,6 +13,9 @@ data class PokemonDetailDto(
     @SerializedName("name") val name: String? = null,
     @SerializedName("types") val types: List<TypeSlotDto>? = null,
     @SerializedName("sprites") val sprites: SpritesDto? = null,
+    // Where the description lives. Following this url is the only reliable way to get there:
+    // the species of an alternate form sits under a different id than the form itself.
+    @SerializedName("species") val species: NamedResourceDto? = null,
 )
 
 data class TypeSlotDto(

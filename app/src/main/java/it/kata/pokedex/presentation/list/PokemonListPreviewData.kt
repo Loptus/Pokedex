@@ -11,9 +11,9 @@ import it.kata.pokedex.domain.model.PokemonType
  * the genuine text from the API, so there is no reason to bake game text into the repo.
  */
 internal val previewRefs = listOf(
-    PokemonRef(id = 1, name = "bulbasaur"),
-    PokemonRef(id = 6, name = "charizard"),
-    PokemonRef(id = 25, name = "pikachu"),
+    PokemonRef(id = 1, name = "bulbasaur", detailUrl = ""),
+    PokemonRef(id = 6, name = "charizard", detailUrl = ""),
+    PokemonRef(id = 25, name = "pikachu", detailUrl = ""),
 )
 
 /** The loaded state of a preview row, for the previews that show a filled in list. */

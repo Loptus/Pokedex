@@ -49,6 +49,15 @@ class PokemonNameIndexDataSourceTest {
         assertEquals(listOf(2, 3, 4), index.matching("char").map { it.id })
     }
 
+    /** The url is kept as the API published it, never rebuilt from the id. */
+    @Test
+    fun `keeps the detail url of each entry`() = runTest {
+        assertEquals(
+            "https://pokeapi.co/api/v2/pokemon/4/",
+            index.matching("charizard").single().detailUrl,
+        )
+    }
+
     /** The whole point of the index: one download, however many searches follow. */
     @Test
     fun `downloads the index only once`() = runTest {

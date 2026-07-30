@@ -9,23 +9,31 @@ import it.kata.pokedex.data.remote.dto.PokemonIndexDto
 import it.kata.pokedex.data.remote.dto.PokemonSpeciesDto
 import it.kata.pokedex.data.remote.dto.SpritesDto
 import it.kata.pokedex.data.remote.dto.TypeSlotDto
-import kotlinx.coroutines.yield
 import java.io.IOException
 
 /**
- * Stands in for the network.
+ * Stands in for the network, and answers only the urls it published, exactly like the real one.
  *
- * A name of "broken" comes back without an id, which is how the tests exercise an entry that cannot
- * be read. The counters are there to prove the things that are otherwise invisible: [indexCalls]
- * that the index is fetched once, [detailCalls] and [speciesCalls] that turning a page fetches
- * nothing, and [detailAndSpeciesOverlapped] that a row's two requests do not queue behind each
- * other.
+ * That is the point of it: a url this fake never handed out is a 404, so any code that assembles an
+ * address instead of following one fails here too. [Entry.speciesUrl] deliberately does not have to
+ * match the pokemon's own id, which is what alternate forms do.
  */
 class FakePokeApi : PokeApi {
 
-    var allNames: List<String> = emptyList()
+    /** An entry as the API publishes it: a detail url, and a species url the detail points at. */
+    data class Entry(
+        val id: Int,
+        val name: String,
+        val speciesId: Int = id,
+        val type: String = "fire",
+    ) {
+        val detailUrl: String get() = "https://pokeapi.co/api/v2/pokemon/$id/"
+        val speciesUrl: String get() = "https://pokeapi.co/api/v2/pokemon-species/$speciesId/"
+    }
+
+    var entries: List<Entry> = emptyList()
     var failIndexCall: Boolean = false
-    var failingSpeciesIds: Set<Int> = emptySet()
+    var failingSpeciesUrls: Set<String> = emptySet()
 
     var indexCalls: Int = 0
         private set
@@ -34,65 +42,55 @@ class FakePokeApi : PokeApi {
     var speciesCalls: Int = 0
         private set
 
-    private var detailInFlight = false
-    private var speciesInFlight = false
-    var detailAndSpeciesOverlapped: Boolean = false
-        private set
+    /** Convenience for the many tests that only care about names. */
+    var allNames: List<String>
+        get() = entries.map { it.name }
+        set(value) {
+            entries = value.mapIndexed { index, name ->
+                Entry(id = index + 1, name = name, type = if (name == "bulbasaur") "grass" else "fire")
+            }
+        }
 
     override suspend fun getPokemonIndex(limit: Int): PokemonIndexDto {
         indexCalls++
         if (failIndexCall) throw IOException("no network")
 
         return PokemonIndexDto(
-            results = allNames.mapIndexed { index, name ->
-                NamedResourceDto(name = name, url = "https://pokeapi.co/api/v2/pokemon/${index + 1}/")
-            },
+            results = entries.map { NamedResourceDto(name = it.name, url = it.detailUrl) },
         )
     }
 
-    override suspend fun getPokemonDetail(name: String): PokemonDetailDto {
+    override suspend fun getPokemonDetail(url: String): PokemonDetailDto {
         detailCalls++
-        detailInFlight = true
-        // Gives the sibling request a chance to start, so the overlap is observable.
-        yield()
-        if (speciesInFlight) detailAndSpeciesOverlapped = true
-        detailInFlight = false
+        val entry = entries.firstOrNull { it.detailUrl == url } ?: throw IOException("404 $url")
 
-        if (name == "broken") return PokemonDetailDto(id = null, name = name)
+        if (entry.name == "broken") return PokemonDetailDto(id = null, name = entry.name)
 
         return PokemonDetailDto(
-            id = idOf(name),
-            name = name,
-            types = listOf(TypeSlotDto(NamedResourceDto(name = typeOf(name)))),
+            id = entry.id,
+            name = entry.name,
+            types = listOf(TypeSlotDto(NamedResourceDto(name = entry.type))),
             sprites = SpritesDto(
-                frontDefault = "front/$name.png",
-                other = OtherSpritesDto(ArtworkDto("artwork/$name.png")),
+                frontDefault = "front/${entry.name}.png",
+                other = OtherSpritesDto(ArtworkDto("artwork/${entry.name}.png")),
             ),
+            species = NamedResourceDto(name = entry.name, url = entry.speciesUrl),
         )
     }
 
-    override suspend fun getPokemonSpecies(id: Int): PokemonSpeciesDto {
+    override suspend fun getPokemonSpecies(url: String): PokemonSpeciesDto {
         speciesCalls++
-        speciesInFlight = true
-        yield()
-        if (detailInFlight) detailAndSpeciesOverlapped = true
-        speciesInFlight = false
+        if (url in failingSpeciesUrls) throw IOException("species unavailable")
 
-        if (id in failingSpeciesIds) throw IOException("species unavailable")
+        val entry = entries.firstOrNull { it.speciesUrl == url } ?: throw IOException("404 $url")
 
         return PokemonSpeciesDto(
             flavorTextEntries = listOf(
                 FlavorTextEntryDto(
-                    flavorText = "Description of ${nameOf(id)}.",
+                    flavorText = "Description of ${entry.name}.",
                     language = NamedResourceDto(name = "en"),
                 ),
             ),
         )
     }
-
-    private fun idOf(name: String) = allNames.indexOf(name) + 1
-
-    private fun nameOf(id: Int) = allNames.getOrElse(id - 1) { "unknown" }
-
-    private fun typeOf(name: String) = if (name == "bulbasaur") "grass" else "fire"
 }

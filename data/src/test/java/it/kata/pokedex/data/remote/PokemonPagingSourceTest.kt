@@ -69,7 +69,11 @@ class PokemonPagingSourceTest {
         AppResult.Success(
             PokemonPage(
                 items = List(size) { index ->
-                    PokemonRef(id = offset + index, name = "pokemon-${offset + index}")
+                    PokemonRef(
+                        id = offset + index,
+                        name = "pokemon-${offset + index}",
+                        detailUrl = "url/${offset + index}",
+                    )
                 },
                 hasMore = hasMore,
             ),

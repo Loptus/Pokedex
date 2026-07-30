@@ -18,15 +18,15 @@ private val WHITESPACE = Regex("\\s+")
 /**
  * Turns an index entry into a pointer, or null when it is unusable.
  *
- * The id comes out of the url because that is the only place the index carries it, and having it up
- * front is what lets a row ask for its detail and its description at the same time instead of one
- * after the other.
+ * The url is kept as it came. The id is read out of it only to key the list row, never to build
+ * another address: see [PokemonRef].
  */
 fun NamedResourceDto.toRef(): PokemonRef? {
     val name = name?.takeIf { it.isNotBlank() } ?: return null
-    val id = url?.let { TRAILING_ID.find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: return null
+    val url = url?.takeIf { it.isNotBlank() } ?: return null
+    val id = TRAILING_ID.find(url)?.groupValues?.get(1)?.toIntOrNull() ?: return null
 
-    return PokemonRef(id = id, name = name)
+    return PokemonRef(id = id, name = name, detailUrl = url)
 }
 
 /**

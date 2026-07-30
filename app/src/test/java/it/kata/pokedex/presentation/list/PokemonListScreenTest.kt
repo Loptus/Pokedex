@@ -122,7 +122,7 @@ class PokemonListScreenTest {
                 "bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon", "charizard",
                 "squirtle", "wartortle", "blastoise", "caterpie", "metapod", "butterfree",
                 "weedle", "kakuna", "beedrill", "pidgey", "pidgeotto", "zeraora",
-            ).mapIndexed { index, name -> PokemonRef(id = index + 1, name = name) }
+            ).mapIndexed { index, name -> PokemonRef(id = index + 1, name = name, detailUrl = "url/${index + 1}") }
         }
     }
 }

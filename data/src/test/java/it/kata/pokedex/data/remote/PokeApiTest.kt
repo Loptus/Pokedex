@@ -50,15 +50,30 @@ class PokeApiTest {
     }
 
     @Test
-    fun `reads the nested sprites and types of a detail`() = runTest {
+    fun `reads the nested sprites, types and species link of a detail`() = runTest {
         server.enqueue(MockResponse(body = DETAIL_JSON))
 
-        val detail = api.getPokemonDetail("bulbasaur")
+        val detail = api.getPokemonDetail(server.url("/pokemon/1/").toString())
 
         assertEquals(1, detail.id)
         assertEquals("grass", detail.types?.first()?.type?.name)
         assertEquals("artwork.png", detail.sprites?.other?.officialArtwork?.frontDefault)
         assertEquals("front.png", detail.sprites?.frontDefault)
+        assertEquals("https://pokeapi.co/api/v2/pokemon-species/1/", detail.species?.url)
+        assertEquals("/pokemon/1/", server.takeRequest().target)
+    }
+
+    /**
+     * The addresses of the detail and of the species are taken from the API, never built, so the
+     * call has to go exactly where it was pointed.
+     */
+    @Test
+    fun `calls the url it is given rather than one of its own`() = runTest {
+        server.enqueue(MockResponse(body = SPECIES_JSON))
+
+        api.getPokemonSpecies(server.url("/pokemon-species/386/").toString())
+
+        assertEquals("/pokemon-species/386/", server.takeRequest().target)
     }
 
     /** The fields the DTO leaves out must not upset the parsing of the ones it keeps. */
@@ -77,7 +92,7 @@ class PokeApiTest {
     fun `reads the flavour text entries of a species`() = runTest {
         server.enqueue(MockResponse(body = SPECIES_JSON))
 
-        val species = api.getPokemonSpecies(1)
+        val species = api.getPokemonSpecies(server.url("/pokemon-species/1/").toString())
 
         assertEquals(2, species.flavorTextEntries?.size)
         assertEquals("en", species.flavorTextEntries?.first()?.language?.name)
@@ -105,6 +120,10 @@ class PokeApiTest {
                 { "slot": 1, "type": { "name": "grass", "url": "https://pokeapi.co/api/v2/type/12/" } },
                 { "slot": 2, "type": { "name": "poison", "url": "https://pokeapi.co/api/v2/type/4/" } }
               ],
+              "species": {
+                "name": "bulbasaur",
+                "url": "https://pokeapi.co/api/v2/pokemon-species/1/"
+              },
               "sprites": {
                 "front_default": "front.png",
                 "back_default": "back.png",

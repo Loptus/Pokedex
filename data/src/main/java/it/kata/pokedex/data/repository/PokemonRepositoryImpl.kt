@@ -6,6 +6,7 @@ import it.kata.pokedex.core.resultOf
 import it.kata.pokedex.data.remote.PokeApi
 import it.kata.pokedex.data.remote.PokemonNameIndexDataSource
 import it.kata.pokedex.data.remote.PokemonPagingSource
+import it.kata.pokedex.data.remote.dto.PokemonDetailDto
 import it.kata.pokedex.data.remote.mapper.toDescription
 import it.kata.pokedex.data.remote.mapper.toDomain
 import it.kata.pokedex.di.IoDispatcher
@@ -14,11 +15,10 @@ import it.kata.pokedex.domain.model.PokemonPage
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.repository.PokemonRepository
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Serves the list in two very different sizes.
@@ -27,8 +27,11 @@ import javax.inject.Inject
  * searching are the same code path with a blank query meaning everything. Nothing is fetched.
  *
  * A row costs two requests, about 12 KB gzipped, and is fetched only when that row is on screen.
- * They go out in parallel because the id is already known from the index, and cancelling the caller
- * cancels them both, which is what makes scrolling quickly past a row cheap.
+ * Cancelling the caller cancels them, which is what makes scrolling quickly past a row cheap.
+ *
+ * The two requests are sequential, and deliberately so: the address of the description is inside the
+ * detail. Running them together would mean assembling that address from the id instead of reading
+ * it, and the ids do not line up, so one round trip is the price of being right.
  */
 class PokemonRepositoryImpl @Inject constructor(
     private val api: PokeApi,
@@ -41,13 +44,26 @@ class PokemonRepositoryImpl @Inject constructor(
 
     override suspend fun pokemon(ref: PokemonRef): AppResult<Pokemon> = withContext(dispatcher) {
         resultOf {
-            coroutineScope {
-                val detail = async { api.getPokemonDetail(ref.name) }
-                val description = async { api.getPokemonSpecies(ref.id).toDescription() }
+            val detail = api.getPokemonDetail(ref.detailUrl)
 
-                detail.await().toDomain(description = description.await())
-                    ?: throw IOException("${ref.name} came back without an id or a name")
-            }
+            detail.toDomain(description = descriptionOf(detail))
+                ?: throw IOException("${ref.name} came back without an id or a name")
+        }
+    }
+
+    /**
+     * A missing description is worth an empty line, not a blank row: artwork, name and types are
+     * already there and are most of what the row is for.
+     */
+    private suspend fun descriptionOf(detail: PokemonDetailDto): String {
+        val url = detail.species?.url?.takeIf { it.isNotBlank() } ?: return ""
+
+        return try {
+            api.getPokemonSpecies(url).toDescription()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            ""
         }
     }
 

@@ -41,7 +41,7 @@ class PokemonRepositoryImplTest {
 
     /**
      * The whole reason the list is paged as pointers: turning a page must not fetch anything. The
-     * two requests a row costs are paid when that row is on screen, by [PokemonRepositoryImpl.pokemon].
+     * two requests a row costs are paid when that row is on screen.
      */
     @Test
     fun `a page costs no detail and no species requests`() = runTest {
@@ -111,8 +111,9 @@ class PokemonRepositoryImplTest {
     @Test
     fun `builds a row out of its detail and its description`() = runTest {
         api.allNames = listOf("bulbasaur")
+        val ref = firstRef()
 
-        val pokemon = repository().pokemon(PokemonRef(id = 1, name = "bulbasaur")).valueOrFail()
+        val pokemon = repository().pokemon(ref).valueOrFail()
 
         assertEquals("bulbasaur", pokemon.name)
         assertEquals(listOf(PokemonType.GRASS), pokemon.types)
@@ -121,36 +122,55 @@ class PokemonRepositoryImplTest {
     }
 
     /**
-     * The id is known from the index, so the two requests a row needs do not have to queue behind
-     * each other: one round trip instead of two, for every row on screen.
+     * The bug this guards against: from id 10001 onwards the entries are alternate forms, and their
+     * species sits under a different, much lower id. Anything that builds the species address out of
+     * the Pokemon's own id gets a 404 for every one of them, which blanked the whole tail of the
+     * list. Following the url inside the detail is the only thing that works.
      */
     @Test
-    fun `fetches a row's detail and description at the same time`() = runTest {
-        api.allNames = listOf("bulbasaur")
+    fun `follows the species link of an alternate form instead of guessing it`() = runTest {
+        api.entries = listOf(FakePokeApi.Entry(id = 10001, name = "deoxys-attack", speciesId = 386))
+        val ref = firstRef()
 
-        repository().pokemon(PokemonRef(id = 1, name = "bulbasaur")).valueOrFail()
+        val pokemon = repository().pokemon(ref).valueOrFail()
 
-        assertEquals(true, api.detailAndSpeciesOverlapped)
+        assertEquals("Description of deoxys-attack.", pokemon.description)
     }
 
     @Test
-    fun `reports a failing row instead of throwing`() = runTest {
+    fun `follows the detail link of an alternate form instead of guessing it`() = runTest {
+        api.entries = listOf(FakePokeApi.Entry(id = 10001, name = "deoxys-attack", speciesId = 386))
+
+        val ref = firstRef()
+
+        assertEquals("https://pokeapi.co/api/v2/pokemon/10001/", ref.detailUrl)
+        assertEquals(10001, repository().pokemon(ref).valueOrFail().id)
+    }
+
+    /** A row without its description is still worth showing: it has artwork, name and types. */
+    @Test
+    fun `keeps the row when only its description fails`() = runTest {
         api.allNames = listOf("bulbasaur")
-        api.failingSpeciesIds = setOf(1)
+        api.failingSpeciesUrls = setOf("https://pokeapi.co/api/v2/pokemon-species/1/")
 
-        val result = repository().pokemon(PokemonRef(id = 1, name = "bulbasaur"))
+        val pokemon = repository().pokemon(firstRef()).valueOrFail()
 
-        assertIs<AppResult.Failure>(result)
+        assertEquals("bulbasaur", pokemon.name)
+        assertEquals("", pokemon.description)
     }
 
     @Test
     fun `reports a row whose detail cannot be read instead of returning a half built one`() = runTest {
         api.allNames = listOf("broken")
 
-        val result = repository().pokemon(PokemonRef(id = 1, name = "broken"))
+        val result = repository().pokemon(firstRef())
 
         assertIs<AppResult.Failure>(result)
     }
+
+    /** Refs always come from the index, so the test takes them from there too. */
+    private suspend fun TestScope.firstRef(): PokemonRef =
+        repository().getPage("", offset = 0, limit = 20).valueOrFail().items.first()
 
     private fun AppResult<PokemonPage>.valueOrFail(): PokemonPage {
         assertIs<AppResult.Success<PokemonPage>>(this)

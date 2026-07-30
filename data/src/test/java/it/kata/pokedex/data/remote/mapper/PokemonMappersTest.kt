@@ -21,6 +21,7 @@ class PokemonMappersTest {
 
         assertEquals(25, ref?.id)
         assertEquals("pikachu", ref?.name)
+        assertEquals("https://pokeapi.co/api/v2/pokemon/25/", ref?.detailUrl)
     }
 
     @Test

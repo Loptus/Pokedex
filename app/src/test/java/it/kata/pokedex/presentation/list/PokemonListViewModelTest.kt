@@ -115,7 +115,7 @@ class PokemonListViewModelTest {
     @Test
     fun `a row starts out loading and fills in on its own`() = runTest {
         val viewModel = viewModel()
-        val ref = PokemonRef(id = 7, name = "squirtle")
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
 
         assertEquals(PokemonRowState.Loading, viewModel.rowState(id = 7).value)
 
@@ -134,7 +134,7 @@ class PokemonListViewModelTest {
     @Test
     fun `fetches a row once however many times it comes back`() = runTest {
         val viewModel = viewModel()
-        val ref = PokemonRef(id = 7, name = "squirtle")
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
 
         repeat(3) {
             launch { viewModel.loadRow(ref) }
@@ -152,7 +152,7 @@ class PokemonListViewModelTest {
     fun `a cancelled row keeps nothing and is fetched again next time`() = runTest {
         repository.hold = CompletableDeferred()
         val viewModel = viewModel()
-        val ref = PokemonRef(id = 7, name = "squirtle")
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
 
         val scrolledPast = launch { viewModel.loadRow(ref) }
         runCurrent()
@@ -174,7 +174,7 @@ class PokemonListViewModelTest {
     fun `a failed row is retried when it comes back`() = runTest {
         repository.failingRowIds = setOf(7)
         val viewModel = viewModel()
-        val ref = PokemonRef(id = 7, name = "squirtle")
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
 
         launch { viewModel.loadRow(ref) }
         advanceUntilIdle()
@@ -232,7 +232,7 @@ class PokemonListViewModelTest {
                     requestedOffsets += offset
 
                     val items = (offset until minOf(offset + params.loadSize, total)).map { index ->
-                        PokemonRef(id = index, name = "pokemon-$index")
+                        PokemonRef(id = index, name = "pokemon-$index", detailUrl = "url/$index")
                     }
                     val nextOffset = offset + params.loadSize
 
