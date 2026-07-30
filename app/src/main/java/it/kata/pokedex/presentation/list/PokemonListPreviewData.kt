@@ -16,6 +16,11 @@ internal val previewRefs = listOf(
     PokemonRef(id = 25, name = "pikachu", detailUrl = ""),
 )
 
+/** The same entries as the screen receives them, one of them saved, to preview both hearts. */
+internal val previewItems = previewRefs.mapIndexed { index, ref ->
+    PokemonListItem(ref = ref, isFavorite = index == 0)
+}
+
 /** The loaded state of a preview row, for the previews that show a filled in list. */
 internal fun previewLoaded(ref: PokemonRef): PokemonRowState.Loaded =
     PokemonRowState.Loaded(previewPokemon.getValue(ref.id))

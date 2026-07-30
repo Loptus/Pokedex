@@ -11,6 +11,10 @@
     <string name="action_clear_search">Clear search</string>
     <string name="cd_type_filter">Filter by type</string>
 
+    <!-- The name is in there because a screen reader meets one of these per row. -->
+    <string name="action_add_favorite">Add %1$s to favorites</string>
+    <string name="action_remove_favorite">Remove %1$s from favorites</string>
+
     <string name="action_retry">Retry</string>
     <string name="list_empty_title">No Pokémon found</string>
     <string name="list_empty_body">Try another name, or clear the search and the type filters.</string>

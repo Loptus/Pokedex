@@ -20,6 +20,9 @@ android {
         // Only for BuildConfig.DEBUG, which decides whether the HTTP logging interceptor is on.
         buildConfig = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -49,4 +52,8 @@ dependencies {
 
     testImplementation(libs.bundles.unit.testing)
     testImplementation(libs.okhttp.mockwebserver)
+
+    // Room needs an Android runtime even in memory, so its tests run on the JVM through Robolectric
+    // rather than on a device.
+    testImplementation(libs.robolectric)
 }

@@ -25,6 +25,7 @@ fun PokemonListRoute(
         onQueryChange = viewModel::onQueryChange,
         selectedTypes = uiState.selectedTypes,
         onTypeToggle = viewModel::onTypeToggle,
+        onFavoriteToggle = viewModel::onFavoriteToggle,
         // Composed per row, which is what ties a row's request to a row being on screen. The
         // LaunchedEffect is the cancellation: Compose tears it down when the row leaves, and the
         // two requests underneath go with it.

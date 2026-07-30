@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,11 +40,17 @@ import it.kata.pokedex.presentation.theme.PokedexTheme
  *
  * The name comes from [ref] and is there from the first frame, because the index already knows it.
  * Everything else arrives with [state], once this row's own request comes back.
+ *
+ * The heart is there from the first frame too, and works there: what gets saved is the pointer,
+ * which the row has before its contents arrive. Waiting for the description to land would be a
+ * button disabled for no reason the user can see.
  */
 @Composable
 fun PokemonRow(
     ref: PokemonRef,
     state: PokemonRowState,
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pokemon = (state as? PokemonRowState.Loaded)?.pokemon
@@ -97,6 +106,23 @@ fun PokemonRow(
                 else -> RowContentsPlaceholder()
             }
         }
+
+        IconButton(onClick = onFavoriteToggle) {
+            Icon(
+                painter = painterResource(
+                    if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite,
+                ),
+                contentDescription = stringResource(
+                    if (isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite,
+                    ref.displayName,
+                ),
+                tint = if (isFavorite) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
     }
 }
 
@@ -104,7 +130,25 @@ fun PokemonRow(
 @Composable
 private fun PokemonRowLoadedPreview() {
     PokedexTheme {
-        PokemonRow(ref = previewRefs[0], state = previewLoaded(previewRefs[0]))
+        PokemonRow(
+            ref = previewRefs[0],
+            state = previewLoaded(previewRefs[0]),
+            isFavorite = false,
+            onFavoriteToggle = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PokemonRowFavoritePreview() {
+    PokedexTheme {
+        PokemonRow(
+            ref = previewRefs[0],
+            state = previewLoaded(previewRefs[0]),
+            isFavorite = true,
+            onFavoriteToggle = {},
+        )
     }
 }
 
@@ -112,7 +156,12 @@ private fun PokemonRowLoadedPreview() {
 @Composable
 private fun PokemonRowSingleTypePreview() {
     PokedexTheme {
-        PokemonRow(ref = previewRefs[2], state = previewLoaded(previewRefs[2]))
+        PokemonRow(
+            ref = previewRefs[2],
+            state = previewLoaded(previewRefs[2]),
+            isFavorite = false,
+            onFavoriteToggle = {},
+        )
     }
 }
 
@@ -120,7 +169,12 @@ private fun PokemonRowSingleTypePreview() {
 @Composable
 private fun PokemonRowLoadingPreview() {
     PokedexTheme {
-        PokemonRow(ref = previewRefs[1], state = PokemonRowState.Loading)
+        PokemonRow(
+            ref = previewRefs[1],
+            state = PokemonRowState.Loading,
+            isFavorite = false,
+            onFavoriteToggle = {},
+        )
     }
 }
 
@@ -128,6 +182,11 @@ private fun PokemonRowLoadingPreview() {
 @Composable
 private fun PokemonRowFailedPreview() {
     PokedexTheme {
-        PokemonRow(ref = previewRefs[1], state = PokemonRowState.Failed)
+        PokemonRow(
+            ref = previewRefs[1],
+            state = PokemonRowState.Failed,
+            isFavorite = false,
+            onFavoriteToggle = {},
+        )
     }
 }

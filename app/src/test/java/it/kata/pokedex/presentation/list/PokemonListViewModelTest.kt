@@ -8,12 +8,18 @@ import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.domain.model.PokemonQuery
 import it.kata.pokedex.domain.model.PokemonRef
 import it.kata.pokedex.domain.model.PokemonType
+import it.kata.pokedex.domain.repository.FavoriteRepository
 import it.kata.pokedex.domain.repository.PokemonRepository
 import it.kata.pokedex.domain.usecase.GetPokemonPagingUseCase
 import it.kata.pokedex.domain.usecase.GetPokemonUseCase
+import it.kata.pokedex.domain.usecase.ObserveFavoriteIdsUseCase
+import it.kata.pokedex.domain.usecase.ToggleFavoriteUseCase
 import it.kata.pokedex.utils.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -32,10 +38,13 @@ class PokemonListViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val repository = RecordingRepository(total = 45)
+    private val favorites = FakeFavoriteRepository()
 
     private fun viewModel() = PokemonListViewModel(
         getPokemonPaging = GetPokemonPagingUseCase(repository),
+        observeFavoriteIds = ObserveFavoriteIdsUseCase(favorites),
         getPokemon = GetPokemonUseCase(repository),
+        toggleFavorite = ToggleFavoriteUseCase(favorites),
     )
 
     /**
@@ -239,6 +248,63 @@ class PokemonListViewModelTest {
     }
 
     /**
+     * The screen is handed a decided flag, never the set to look into, so this is where the matching
+     * has to be checked.
+     */
+    @Test
+    fun `the items say which ones are saved`() = runTest {
+        favorites.ids.value = setOf(0, 2)
+
+        val items = viewModel().pokemon.asSnapshot()
+
+        assertEquals(listOf(0, 2), items.filter { it.isFavorite }.map { it.ref.id })
+    }
+
+    @Test
+    fun `tapping the heart saves, and tapping it again removes`() = runTest {
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
+
+        viewModel.onFavoriteToggle(ref)
+        advanceUntilIdle()
+        assertEquals(true, viewModel.pokemon.asSnapshot().single { it.ref.id == 7 }.isFavorite)
+
+        viewModel.onFavoriteToggle(ref)
+        advanceUntilIdle()
+        assertEquals(false, viewModel.pokemon.asSnapshot().single { it.ref.id == 7 }.isFavorite)
+    }
+
+    /** Saving one entry must not light up the hearts of the others. */
+    @Test
+    fun `marking a favorite leaves the other items alone`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onFavoriteToggle(PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7"))
+        advanceUntilIdle()
+
+        assertEquals(listOf(7), viewModel.pokemon.asSnapshot().filter { it.isFavorite }.map { it.ref.id })
+    }
+
+    /**
+     * The write runs in the ViewModel's scope and not in the caller's, so a row that leaves the
+     * screen while the save is still in flight must not take the save down with it.
+     */
+    @Test
+    fun `saving a favorite outlives the row that asked for it`() = runTest {
+        favorites.hold = CompletableDeferred()
+        val viewModel = viewModel()
+        val ref = PokemonRef(id = 7, name = "squirtle", detailUrl = "url/7")
+
+        val row = launch { viewModel.onFavoriteToggle(ref) }
+        runCurrent()
+        row.cancel()
+        favorites.hold?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf(7), favorites.toggled)
+    }
+
+    /**
      * A paging source of its own rather than the real one from the data module: this test is about
      * what the ViewModel and the use cases ask for, not about how the data layer fetches it.
      */
@@ -296,6 +362,24 @@ class PokemonListViewModelTest {
 
                 override fun getRefreshKey(state: PagingState<Int, PokemonRef>): Int? = null
             }
+        }
+    }
+
+    /** Favorites in memory: the toggle is Room's job, and it has its own test in the data module. */
+    private class FakeFavoriteRepository : FavoriteRepository {
+
+        val ids = MutableStateFlow<Set<Int>>(emptySet())
+        val toggled = mutableListOf<Int>()
+
+        /** Set to keep a write pending, so a cancellation can land in the middle of it. */
+        var hold: CompletableDeferred<Unit>? = null
+
+        override fun favoriteIds(): Flow<Set<Int>> = ids
+
+        override suspend fun toggle(ref: PokemonRef) {
+            hold?.await()
+            toggled += ref.id
+            ids.update { current -> if (ref.id in current) current - ref.id else current + ref.id }
         }
     }
 }

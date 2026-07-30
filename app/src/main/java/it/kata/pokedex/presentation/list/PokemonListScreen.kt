@@ -40,11 +40,12 @@ private const val PLACEHOLDER_ROWS = 8
  */
 @Composable
 fun PokemonListScreen(
-    pokemon: LazyPagingItems<PokemonRef>,
+    pokemon: LazyPagingItems<PokemonListItem>,
     query: String,
     onQueryChange: (String) -> Unit,
     selectedTypes: Set<PokemonType>,
     onTypeToggle: (PokemonType) -> Unit,
+    onFavoriteToggle: (PokemonRef) -> Unit,
     rowFor: @Composable (PokemonRef) -> PokemonRowState,
     modifier: Modifier = Modifier,
 ) {
@@ -60,6 +61,7 @@ fun PokemonListScreen(
         onQueryChange = onQueryChange,
         selectedTypes = selectedTypes,
         onTypeToggle = onTypeToggle,
+        onFavoriteToggle = onFavoriteToggle,
         rowFor = rowFor,
         onRetry = pokemon::retry,
         modifier = modifier,
@@ -78,7 +80,7 @@ fun PokemonListScreen(
  */
 @Composable
 private fun PokemonListContent(
-    rows: List<PokemonRef>,
+    rows: List<PokemonListItem>,
     onRowReached: (Int) -> Unit,
     refresh: LoadState,
     append: LoadState,
@@ -86,6 +88,7 @@ private fun PokemonListContent(
     onQueryChange: (String) -> Unit,
     selectedTypes: Set<PokemonType>,
     onTypeToggle: (PokemonType) -> Unit,
+    onFavoriteToggle: (PokemonRef) -> Unit,
     rowFor: @Composable (PokemonRef) -> PokemonRowState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -104,11 +107,16 @@ private fun PokemonListContent(
                 rows.isEmpty() -> ListEmptyState()
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(count = rows.size, key = { rows[it].id }) { index ->
+                    items(count = rows.size, key = { rows[it].ref.id }) { index ->
                         onRowReached(index)
 
-                        val ref = rows[index]
-                        PokemonRow(ref = ref, state = rowFor(ref))
+                        val item = rows[index]
+                        PokemonRow(
+                            ref = item.ref,
+                            state = rowFor(item.ref),
+                            isFavorite = item.isFavorite,
+                            onFavoriteToggle = { onFavoriteToggle(item.ref) },
+                        )
                         RowDivider()
                     }
 
@@ -146,7 +154,7 @@ private fun RowDivider() {
 private fun PokemonListLoadedPreview() {
     PokedexTheme {
         PokemonListContent(
-            rows = previewRefs,
+            rows = previewItems,
             onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = false),
             append = LoadState.NotLoading(endOfPaginationReached = true),
@@ -154,6 +162,7 @@ private fun PokemonListLoadedPreview() {
             onQueryChange = {},
             selectedTypes = emptySet(),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { previewLoaded(it) },
             onRetry = {},
         )
@@ -165,7 +174,7 @@ private fun PokemonListLoadedPreview() {
 private fun PokemonListRowsLoadingPreview() {
     PokedexTheme {
         PokemonListContent(
-            rows = previewRefs,
+            rows = previewItems,
             onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = false),
             append = LoadState.NotLoading(endOfPaginationReached = true),
@@ -173,6 +182,7 @@ private fun PokemonListRowsLoadingPreview() {
             onQueryChange = {},
             selectedTypes = emptySet(),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -192,6 +202,7 @@ private fun PokemonListLoadingPreview() {
             onQueryChange = {},
             selectedTypes = emptySet(),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -211,6 +222,7 @@ private fun PokemonListEmptyPreview() {
             onQueryChange = {},
             selectedTypes = setOf(PokemonType.DRAGON),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -230,6 +242,7 @@ private fun PokemonListErrorPreview() {
             onQueryChange = {},
             selectedTypes = emptySet(),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { PokemonRowState.Loading },
             onRetry = {},
         )
@@ -241,7 +254,7 @@ private fun PokemonListErrorPreview() {
 private fun PokemonListAppendingPreview() {
     PokedexTheme {
         PokemonListContent(
-            rows = previewRefs,
+            rows = previewItems,
             onRowReached = {},
             refresh = LoadState.NotLoading(endOfPaginationReached = false),
             append = LoadState.Loading,
@@ -249,6 +262,7 @@ private fun PokemonListAppendingPreview() {
             onQueryChange = {},
             selectedTypes = emptySet(),
             onTypeToggle = {},
+            onFavoriteToggle = {},
             rowFor = { previewLoaded(it) },
             onRetry = {},
         )
