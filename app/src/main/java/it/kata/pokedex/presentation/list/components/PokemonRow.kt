@@ -26,8 +26,7 @@ import coil3.request.crossfade
 import it.kata.pokedex.R
 import it.kata.pokedex.domain.model.Pokemon
 import it.kata.pokedex.presentation.common.displayName
-import it.kata.pokedex.presentation.list.staticDescriptions
-import it.kata.pokedex.presentation.list.staticPokemon
+import it.kata.pokedex.presentation.list.previewPokemon
 import it.kata.pokedex.presentation.theme.PokedexTheme
 
 /**
@@ -37,7 +36,6 @@ import it.kata.pokedex.presentation.theme.PokedexTheme
 @Composable
 fun PokemonRow(
     pokemon: Pokemon,
-    description: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -73,7 +71,7 @@ fun PokemonRow(
                 pokemon.types.forEach { TypeChip(it) }
             }
             Text(
-                text = description,
+                text = pokemon.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -86,21 +84,11 @@ fun PokemonRow(
 @Preview(showBackground = true)
 @Composable
 private fun PokemonRowPreview() {
-    PokedexTheme {
-        PokemonRow(
-            pokemon = staticPokemon[0],
-            description = staticDescriptions.getValue(staticPokemon[0].id),
-        )
-    }
+    PokedexTheme { PokemonRow(pokemon = previewPokemon[0]) }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun PokemonRowLongDescriptionPreview() {
-    PokedexTheme {
-        PokemonRow(
-            pokemon = staticPokemon[3],
-            description = staticDescriptions.getValue(staticPokemon[3].id),
-        )
-    }
+private fun PokemonRowSingleTypePreview() {
+    PokedexTheme { PokemonRow(pokemon = previewPokemon[2]) }
 }

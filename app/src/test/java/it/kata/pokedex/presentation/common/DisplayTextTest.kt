@@ -34,5 +34,6 @@ class DisplayTextTest {
         name = name,
         imageUrl = null,
         types = emptyList(),
+        description = "",
     )
 }

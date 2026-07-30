@@ -3,4 +3,9 @@
     <string name="header_title_bold">dex</string>
 
     <string name="cd_pokemon_artwork">Immagine di %1$s</string>
+
+    <string name="action_retry">Riprova</string>
+    <string name="list_error_title">Qualcosa è andato storto</string>
+    <string name="list_error_body">Controlla la connessione e riprova.</string>
+    <string name="list_append_error">Non è stato possibile caricare altri risultati</string>
 </resources>

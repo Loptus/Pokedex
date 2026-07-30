@@ -6,4 +6,9 @@
     <string name="header_title_bold">dex</string>
 
     <string name="cd_pokemon_artwork">Artwork of %1$s</string>
+
+    <string name="action_retry">Retry</string>
+    <string name="list_error_title">Something went wrong</string>
+    <string name="list_error_body">Check your connection and try again.</string>
+    <string name="list_append_error">Could not load more</string>
 </resources>
