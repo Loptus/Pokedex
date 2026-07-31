@@ -2,4 +2,11 @@
 <resources>
     <!-- The accent red of the app, so icon and header speak with the same voice. -->
     <color name="ic_launcher_background">#D23B3B</color>
+
+    <!--
+    The window under Compose, matched to the surface Compose paints on top (SheetLight, SheetDark).
+    Without the night variant the window stays light, and a cold start in dark mode flashes white
+    before the first frame.
+    -->
+    <color name="window_background">#FFFFFF</color>
 </resources>
