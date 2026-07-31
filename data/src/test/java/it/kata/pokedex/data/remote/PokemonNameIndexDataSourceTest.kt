@@ -43,6 +43,12 @@ class PokemonNameIndexDataSourceTest {
         assertEquals(5, index.matching("   ").size)
     }
 
+    /** Keyboards add a trailing space often enough that comparing the raw string finds nothing. */
+    @Test
+    fun `ignores the spaces around the query`() = runTest {
+        assertEquals(listOf("charizard"), index.matching("  charizard ").map { it.name })
+    }
+
     /** The id only exists in the url, and a row needs it to fetch its description. */
     @Test
     fun `reads the id out of the url`() = runTest {

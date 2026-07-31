@@ -25,10 +25,14 @@ class PokemonNameIndexDataSource @Inject constructor(
 
     suspend fun matching(query: String): List<PokemonRef> {
         val all = index()
-        return if (query.isBlank()) {
+        // Trimmed here rather than at the caller so no route into the index can skip it: keyboards
+        // add a trailing space often enough that "pika " would otherwise find nothing.
+        val term = query.trim()
+
+        return if (term.isEmpty()) {
             all
         } else {
-            all.filter { it.name.contains(query, ignoreCase = true) }
+            all.filter { it.name.contains(term, ignoreCase = true) }
         }
     }
 
