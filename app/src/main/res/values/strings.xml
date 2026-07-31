@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Pokédex</string>
+    <string name="app_name" translatable="false">Pokédex</string>
 
     <!-- Two weights, like the mockup title. Same in every language: it is the product name. -->
     <string name="header_title_regular">Poké</string>
