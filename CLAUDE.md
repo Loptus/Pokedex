@@ -61,7 +61,8 @@ Queste regole valgono sempre e hanno la precedenza sulla voglia di andare veloce
 
 ## 3. Stack tecnico
 
-- **Kotlin** (ultima stabile), JDK 17 come target, toolchain 21.
+- **Kotlin** (ultima stabile), JDK 17: `jvmTarget` 17 in `:app` e `:data`, `jvmToolchain(17)` in
+  `:domain`.
 - **UI:** Jetpack Compose + **Material 3**. Single Activity, niente Fragment.
 - **Async:** Coroutine + Flow. `viewModelScope`, `StateFlow` per lo stato UI.
 - **DI:** **Hilt** con KSP.
@@ -102,7 +103,7 @@ volontà di chi scrive.
 ```
 :domain   kotlin-jvm                domain/model, domain/repository (interfacce), domain/usecase, core/
 :data     com.android.library       data/remote (PokeApi, DTO, mapper), data/repository, di/
-:app      com.android.application   presentation/, MainActivity, theme, PokedexApplication
+:app      com.android.application   presentation/{list,favorites,navigation,common,theme}, MainActivity
 ```
 
 Regole dei moduli:
@@ -179,6 +180,17 @@ La API è REST e senza auth, ma **la lista non basta a disegnare una riga**. Pun
 3. **Descrizione (flavor text):** si raggiunge seguendo `species.url` **del dettaglio**, campo
    `flavor_text_entries[]`. Filtrare `language.name == "en"`, prendere la prima e **ripulirla** dai
    caratteri di controllo `\n`, `\f` e dai doppi spazi, che l'API contiene letteralmente.
+4. **Filtro per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`, cioè
+   l'elenco completo di chi ha quel tipo, fra 2,7 e 4,5 KB gzip. Si scarica **una volta per tipo
+   selezionato** e si tiene in memoria, come l'indice. Il path si compone dal nome: è un punto di
+   ingresso indirizzato da un identificatore che possediamo già (gli stessi `apiName` dell'enum),
+   non un indirizzo derivato dall'id di un'altra risorsa.
+   Attenzione: l'API espone **21** tipi, non 18, e `unknown` e `shadow` stanno agli id 10001 e 10002.
+   Indirizzare i tipi per id ricadrebbe nello stesso disallineamento. I 18 dell'enum sono una scelta
+   di prodotto: `stellar`, `unknown` e `shadow` restano fuori dai chip e il mapper li scarta.
+5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto,
+   quindi il filtro per substring si fa in locale sull'indice. La query si **trimma** prima di
+   confrontarla, perché le tastiere aggiungono spazi che altrimenti non fanno trovare niente.
 
 ### Gli url si seguono, non si costruiscono
 
@@ -194,16 +206,6 @@ indirizzo.
 
 Costo accettato: dettaglio e species diventano **sequenziali**, perché il secondo indirizzo sta
 dentro la prima risposta. Un round trip in più è il prezzo di non indovinare.
-4. **Filtro per tipo:** `GET /api/v2/type/{name}` restituisce `pokemon[].pokemon.{name,url}`, cioè
-   l'elenco completo di chi ha quel tipo, fra 2,7 e 4,5 KB gzip. Si scarica **una volta per tipo
-   selezionato** e si tiene in memoria, come l'indice. Il path si compone dal nome: è un punto di
-   ingresso indirizzato da un identificatore che possediamo già (gli stessi `apiName` dell'enum),
-   non un indirizzo derivato dall'id di un'altra risorsa.
-   Attenzione: l'API espone **21** tipi, non 18, e `unknown` e `shadow` stanno agli id 10001 e 10002.
-   Indirizzare i tipi per id ricadrebbe nello stesso disallineamento. I 18 dell'enum sono una scelta
-   di prodotto: `stellar`, `unknown` e `shadow` restano fuori dai chip e il mapper li scarta.
-5. **Ricerca per nome:** la API **non ha ricerca fuzzy**, `GET /pokemon/{name}` fa solo match esatto,
-   quindi il filtro per substring si fa in locale sull'indice.
 
 ### Dove sta davvero il costo (misurato, gzip)
 
@@ -234,8 +236,8 @@ righe di cui l'utente ne vede quattro o cinque.
 - **La cancellazione arriva da `LaunchedEffect`.** Il caricamento della riga gira nello scope della
   composizione, quindi quando la riga esce dallo schermo Compose lo cancella e Retrofit cancella le
   richieste. Scorrere veloce non paga le righe superate.
-- **Cache in memoria nel ViewModel**, un `StateFlow` per id: fa da cache (sopravvive
-  all'invalidazione del Paging e alla rotazione) e dà la granularità giusta, perché una riga che
+- **Cache in memoria in `PokemonRowLoader`**, uno per ViewModel, un `StateFlow` per id: fa da cache
+  (sopravvive all'invalidazione del Paging e alla rotazione) e dà la granularità giusta, perché una riga che
   arriva ricompone solo se stessa. I **fallimenti non si mettono in cache**, così una riga che torna
   visibile riprova senza bisogno di UI di errore per riga.
 - **Cache HTTP di OkHttp** attiva: la API manda header cache-friendly e questo abbatte le chiamate
@@ -266,9 +268,12 @@ Il mockup di riferimento è pulito e iOS-like. Da replicare nello spirito e migl
 - **Stati:** skeleton durante il caricamento, empty state per la ricerca senza risultati, error state
   con "Riprova" (a schermo intero se fallisce la prima pagina, in coda alla lista se fallisce una
   successiva).
+- **Seconda schermata:** i preferiti riusano la riga della lista, in ordine di Pokédex, e lì il cuore
+  può solo rimuovere. Si raggiunge da una bottom navigation a due tab che conserva stato e posizione.
 - **Tema:** Material 3, **dynamic color disattivato**: l'app ha una sua identità, i colori dei tipi
   sono già tutto il colore che lo schermo regge, e il dynamic color renderebbe incoerente ogni
-  screenshot.
+  screenshot. Il tema di piattaforma sotto Compose deve seguire il night mode: `windowBackground` ha
+  la sua variante in `values-night`, altrimenti l'avvio a freddo in scuro lampeggia bianco.
 - **Colore dei chip:** sfondo del colore del tipo, testo bianco o nero scelto dalla luminanza dello
   sfondo. La soglia corretta è **0.179**, non 0.5: viene dalla formula di contrasto WCAG, dove nero e
   bianco pareggiano a `(L + 0.05) / 0.05 = 1.05 / (L + 0.05)`. Con quel pivot ogni colore è garantito
@@ -348,7 +353,14 @@ Non esiste un JDK sul PATH: Gradle si lancia con la JBR di Android Studio.
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew assembleDebug testDebugUnitTest :domain:test
+./gradlew build
+```
+
+`build` è il comando che conta, perché include **lint** oltre a compilazione e test, ed è quello che
+lancerà chi riceve il progetto. Per i soli test, che è ciò che serve durante il lavoro:
+
+```bash
+./gradlew :app:testDebugUnitTest --rerun :data:testDebugUnitTest --rerun :domain:test --rerun
 ```
 
 `:domain` è un modulo JVM, quindi i suoi test stanno sotto `test` e non sotto `testDebugUnitTest`:
@@ -357,14 +369,19 @@ senza `:domain:test` esplicito quei test non vengono eseguiti e la build resta v
 - Dopo ogni step: build e test verdi prima di dichiarare finito.
 - I warning del compilatore si trattano come errori da sistemare, non da ignorare (per esempio una
   API deprecata che ha cambiato package).
+- **Lint fa parte della verifica**, non è un extra: alcune sue segnalazioni sono errori che fanno
+  fallire `build`, e sono proprio quelle che misurano le best practice di piattaforma.
 - **Limite noto:** le `@Preview` di Compose **non si renderizzano da riga di comando**, servono l'IDE
   o una libreria di screenshot test. Il controllo visivo e la fedeltà al mockup vanno verificati a
   mano in Android Studio: non dichiararli verificati.
 
 ## 10. Consegna
 
-- **README.md** in italiano con: come buildare ed eseguire, panoramica dell'architettura, scelte
-  tecniche e trade-off, cosa è stato tagliato e cosa si farebbe con più tempo.
+- **README.md** in italiano, scritto per chi valuta: come buildare ed eseguire, come è organizzato il
+  progetto, e soprattutto le decisioni con il costo che ognuna ha. Le scelte contestabili vanno per
+  prime, perché è da lì che parte la discussione. **Niente numeri che invecchiano** (conteggi di test,
+  versioni delle librerie: quelle stanno nel version catalog) e niente sezioni tipo "cosa è stato
+  tagliato" o "con più tempo", che non spiegano né lo stato né le scelte.
 - **`.gitignore`** Android standard: `build/`, `.gradle/`, `.idea/`, `local.properties`, `*.iml`,
   `.DS_Store`.
 - **Nessun segreto nel repo.** La PokeAPI non richiede chiavi, ma `local.properties` non si committa.
@@ -408,10 +425,12 @@ Vale per README, commit e commenti in italiano:
   `PokemonRowLoader`, e in `components/` la riga, i chip dei tipi, i placeholder, il divider e
   l'empty state. In `presentation/list/` resta ciò che è solo della lista (header, campo di ricerca,
   chip dei filtri, stati di caricamento e di errore del paging).
-- Test su tutti i layer, compresi test Compose su JVM con Robolectric e test Room in memoria.
-  **107 al momento dell'ultimo aggiornamento**, tutti verdi.
-- **README.md** in italiano, come da sezione 10: build, architettura, scelte con i loro costi, cosa
-  è tagliato e cosa si farebbe con più tempo.
+- Test su tutti i layer, compresi test Compose su JVM con Robolectric e test Room in memoria. Il
+  conteggio non si scrive qui: invecchia male, e `./gradlew build` è il modo di sapere come sta.
+- **`./gradlew build` è verde, lint compreso**: zero errori, restano due warning informativi che
+  segnalano l'esistenza di una AGP più recente.
+- **README.md** in italiano, come da sezione 10: scritto per chi valuta, decisioni contestabili in
+  cima, ognuna con il suo costo.
 - **Version catalog senza voci morte**: ogni libreria, bundle, versione e plugin dichiarato è usato.
   Tolti `mockk`, `mockk-android`, `androidx-arch-core-testing`, `extJunit`, `androidx-espresso-core`
   e il bundle `android-testing`, insieme al `testInstrumentationRunner`: senza sorgenti in
@@ -424,9 +443,8 @@ Vale per README, commit e commenti in italiano:
 
 ### Cosa manca
 
-Niente: le feature richieste dalla sezione 1 ci sono tutte, i test sono verdi e la consegna della
-sezione 10 è completa. Quello che resta sono i punti aperti qui sotto, che sono scelte rimandate e
-non lavori a metà.
+Niente: le feature della sezione 1 ci sono tutte e `./gradlew build` è verde. Quello che resta sotto
+sono scelte rimandate, non lavori a metà.
 
 ### Decisioni già prese, da non rimettere in discussione
 
@@ -465,6 +483,16 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
 - **`favorites` è `List<PokemonRef>?` con `null` che significa "il database non ha ancora
   risposto"**, distinto dalla lista vuota. Con l'empty state al posto del nulla, chi ha venti
   preferiti si vedrebbe dire per un frame che non ne ha.
+- **Il tema di piattaforma segue il night mode** con `windowBackground` e la sua variante in
+  `values-night`, invece di un `values-night/themes.xml` con parent scuro: il parent stilerebbe
+  widget di piattaforma che non usiamo, e il flash bianco all'avvio dipendeva solo dallo sfondo
+  della finestra.
+- **`app_name` è `translatable="false"`**, non duplicata in `values-it`: è il nome del prodotto, e
+  quello è il modo di dirlo a lint invece di mantenere due copie identiche.
+- **Il trim della query sta nel data source**, dove avviene il confronto, e non nel ViewModel: così
+  nessun percorso verso l'indice può saltarlo.
+- **Si resta su AGP 9.2.1.** Lint segnala che esiste la 9.3.1: aggiornare il plugin di build a
+  ridosso della consegna porta rischio e nessun beneficio.
 - **I commenti sono stati potati alla regola della sezione 8**, dal 24% al 11% di righe. Quello che
   è rimasto documenta una decisione o una trappola: la soglia 0.179, l'url portato invece che
   ricostruito, il `combine` dopo `cachedIn`, la delete che fa da domanda nel DAO, i campi nullable
@@ -512,6 +540,11 @@ Sono tutte motivate nelle sezioni sopra e quasi tutte hanno un test che le blind
 - **Un DAO con un metodo `@Transaction` deve essere una classe astratta**, non un'interfaccia: Room
   vuole un corpo, e un corpo vuole una classe.
 - **Room non ha bisogno di `room-ktx`** per i `Flow`: basta `room-runtime`, verificato compilando.
+- **`./gradlew assembleDebug` non esegue lint.** Per mesi la build è sembrata pulita mentre `build`
+  falliva: lint tratta `MissingTranslation` come **errore**, e una stringa che non si traduce (il
+  nome del prodotto) va marcata `translatable="false"`, non lasciata scoperta.
+- **Un tema di piattaforma solo Light fa lampeggiare bianco l'avvio in dark mode**, anche se Compose
+  disegna correttamente: quello che si vede prima del primo frame è `windowBackground`.
 - **I test Room vogliono gli executor di Room sostituiti** con il test dispatcher
   (`setQueryExecutor` e `setTransactionExecutor`), altrimenti la scrittura e l'emissione che ne segue
   finiscono su un thread fuori dalla timeline del test.
