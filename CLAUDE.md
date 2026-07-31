@@ -416,10 +416,17 @@ Vale per README, commit e commenti in italiano:
   Tolti `mockk`, `mockk-android`, `androidx-arch-core-testing`, `extJunit`, `androidx-espresso-core`
   e il bundle `android-testing`, insieme al `testInstrumentationRunner`: senza sorgenti in
   `androidTest` puntava a una dipendenza che non c'è più.
+- **Icona adattiva**: Poké Ball monolinea bianca su `@color/ic_launcher_background`, che è il rosso
+  dell'accento. Fondo a colore invece che a drawable, foreground di quattro path dentro la safe zone
+  di 66dp, e lo stesso file fa da layer `monochrome` perché è piatto su trasparente. Tolti i dieci
+  webp legacy, `ic_launcher_round` e `android:roundIcon`: con `minSdk` 26 l'adattiva vale ovunque e
+  la maschera tonda la applica il launcher. Da `colors.xml` sono spariti i colori del template.
 
-### Cosa manca, in ordine
+### Cosa manca
 
-1. **Icona adattiva**, opzionale.
+Niente: le feature richieste dalla sezione 1 ci sono tutte, i test sono verdi e la consegna della
+sezione 10 è completa. Quello che resta sono i punti aperti qui sotto, che sono scelte rimandate e
+non lavori a metà.
 
 ### Decisioni già prese, da non rimettere in discussione
 

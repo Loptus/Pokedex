@@ -184,7 +184,6 @@ Robolectric.
 - **Posizione della lista al cambio di query.** `LazyColumn` conserva la posizione per chiave, quindi
   svuotando la ricerca si resta a metà lista invece di tornare in cima. È una decisione di UX più che
   un bug, e non l'ho presa da solo.
-- **Icona adattiva.**
 
 ## Con più tempo
 
